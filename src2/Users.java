@@ -27,10 +27,10 @@ public class Users {
 
     private static final String FILE_NAME = "json_files/users.json";
 
-    private static final Gson gson =
-            new GsonBuilder()
-                    .setPrettyPrinting()
-                    .create();
+    private static final Gson gson = new GsonBuilder()
+                        .registerTypeAdapter(MenuItem.class, new MenuItemDeserializer())
+                        .setPrettyPrinting()
+                        .create();
 
     private Set<String> registeredMemberIds;
     private Set<String> activePromoCodes;

@@ -30,10 +30,10 @@ public class Inventory {
 
     private static final String FILE_NAME = "json_files/inventory.json";
 
-    private static final Gson gson =
-            new GsonBuilder()
-                    .setPrettyPrinting()
-                    .create();
+    private static final Gson gson = new GsonBuilder()
+                        .registerTypeAdapter(MenuItem.class, new MenuItemDeserializer())
+                        .setPrettyPrinting()
+                        .create();
 
     private List<MenuItem> menuCatalog;
 

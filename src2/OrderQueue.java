@@ -11,6 +11,10 @@ import java.util.Queue;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 /**
@@ -25,10 +29,10 @@ public class OrderQueue {
 
     private static final String FILE_NAME = "json_files/orders.json";
 
-    private static final Gson gson =
-            new GsonBuilder()
-                    .setPrettyPrinting()
-                    .create();
+    private static final Gson gson = new GsonBuilder()
+                        .registerTypeAdapter(MenuItem.class, new MenuItemDeserializer())
+                        .setPrettyPrinting()
+                        .create();
 
     private Queue<Order> pendingOrders;
 
@@ -120,12 +124,46 @@ public class OrderQueue {
 
         try (FileReader reader = new FileReader(file)) {
 
-            Type listType = new TypeToken<List<Order>>() {}.getType();
+            JsonElement root = JsonParser.parseReader(reader);
 
-            List<Order> orders = gson.fromJson(reader, listType);
+            pendingOrders = new LinkedList<>();
 
-            if (orders == null) pendingOrders = new LinkedList<>();
-            else pendingOrders = new LinkedList<>(orders);
+            if (root != null && root.isJsonArray()) {
+                JsonArray arr = root.getAsJsonArray();
+
+                for (JsonElement el : arr) {
+                    if (!el.isJsonObject()) continue;
+
+                    JsonObject obj = el.getAsJsonObject();
+
+                    int orderId = obj.has("orderId") ? obj.get("orderId").getAsInt() : (int)(Math.random() * 9000) + 1000;
+                    String customerName = obj.has("customerName") ? obj.get("customerName").getAsString() : "Guest";
+
+                    Order order = new Order(orderId, customerName);
+
+                    if (obj.has("items") && obj.get("items").isJsonArray()) {
+                        JsonArray itemsArr = obj.getAsJsonArray("items");
+
+                        for (JsonElement itemEl : itemsArr) {
+                            if (!itemEl.isJsonObject()) continue;
+                            JsonObject itemObj = itemEl.getAsJsonObject();
+                            String category = itemObj.has("category") ? itemObj.get("category").getAsString() : "";
+
+                            if ("Beverage".equalsIgnoreCase(category)) {
+                                Beverage b = gson.fromJson(itemObj, Beverage.class);
+                                order.addItem(b);
+                            } else if ("Pastry".equalsIgnoreCase(category)) {
+                                Pastry p = gson.fromJson(itemObj, Pastry.class);
+                                order.addItem(p);
+                            }
+                        }
+                    }
+
+                    if (obj.has("isProcessed")) order.setProcessed(obj.get("isProcessed").getAsBoolean());
+
+                    pendingOrders.add(order);
+                }
+            }
 
         } catch (IOException e) {
 

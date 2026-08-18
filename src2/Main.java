@@ -57,8 +57,17 @@ public class Main {
                     String name = scanner.next();
                     scanner.nextLine(); // Consume newline
                     Order newOrder = new Order((int)(Math.random() * 9000) + 1000, name);
-                    newOrder.addItem(inventory.binarySearchById(101)); // Example adding Espresso
-                    orderQueue.enqueueOrder(newOrder);
+                    
+                    System.out.println("Enter Item ID: ");
+                    int itemId = scanner.nextInt();
+                    scanner.nextLine(); // Consume newline
+                    MenuItem item = inventory.binarySearchById(itemId);
+                    if (item != null) {
+                        newOrder.addItem(item);
+                        orderQueue.enqueueOrder(newOrder);
+                    } else {
+                        System.out.println("Item not found!");
+                    }
                 }
 
                 case 4 -> {
