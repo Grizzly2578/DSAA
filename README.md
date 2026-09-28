@@ -112,7 +112,7 @@ The `HTTPServer.java` exposes the following endpoints:
 
 ## 🛠️ Built With
 
-*   **Java 17:** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
+*   **Java 27:** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
 *   **HTML5/CSS3:** Semantic structure and custom styling (CSS Variables for theming).
 *   **Vanilla JavaScript (ES6+):** Asynchronous `fetch` API, DOM manipulation, and LocalStorage.
 
