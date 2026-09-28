@@ -9,15 +9,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.Executors;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 public class HTTPServer {
 
     private static final int PORT = 8080;
     private static final String WEB_ROOT = "web";
 
-    // References to your system core classes
+    // References to system core classes
     private final Inventory inventory;
     private final OrderQueue orderQueue;
+
+    // AUTH - User Sessions
+    private final Map<String, String> sessions = new ConcurrentHashMap<>();
 
     public HTTPServer(Inventory inventory, OrderQueue orderQueue) {
         this.inventory = inventory;
@@ -31,6 +37,7 @@ public class HTTPServer {
         server.createContext("/", new StaticFileHandler());
 
         // 2. REST API Handlers
+        server.createContext("/api/login", new LoginApiHandler());
         server.createContext("/api/menu", new MenuApiHandler());
         server.createContext("/api/orders", new OrdersApiHandler());
 
@@ -39,6 +46,66 @@ public class HTTPServer {
         server.start();
 
         System.out.println("Cafe Server running at: http://localhost:" + PORT + "/");
+    }
+    // ==========================================
+    // AUTH HANDLER
+    // ==========================================
+
+    private String getRole(HttpExchange exchange) {
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return sessions.get(authHeader.substring(7));
+        }
+        return null;
+    }
+
+    private boolean isAuthorized(HttpExchange exchange, String... allowedRoles) throws IOException {
+        String role = getRole(exchange);
+        if (role == null) {
+            sendResponse(exchange, 401, "{\"error\":\"Unauthorized. Please log in.\"}", "application/json");
+            return false;
+        }
+        for (String allowed : allowedRoles) {
+            if (allowed.equals(role)) return true;
+        }
+        sendResponse(exchange, 403, "{\"error\":\"Forbidden. Insufficient permissions.\"}", "application/json");
+        return false;
+    }
+
+    private class LoginApiHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                InputStream is = exchange.getRequestBody();
+                String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                try {
+                    String username = body.replaceAll("(?s).*\"username\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                    String password = body.replaceAll("(?s).*\"password\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+                    String role = null;
+                    if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
+                    else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
+
+                    if (role != null) {
+                        String token = UUID.randomUUID().toString();
+                        sessions.put(token, role);
+                        sendResponse(exchange, 200, "{\"token\":\"" + token + "\", \"role\":\"" + role + "\"}", "application/json");
+                    } else {
+                        sendResponse(exchange, 401, "{\"error\":\"Invalid credentials\"}", "application/json");
+                    }
+                } catch (Exception e) {
+                    sendResponse(exchange, 400, "{\"error\":\"Malformed JSON\"}", "application/json");
+                }
+            } else {
+                sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
+            }
+        }
     }
 
     // ==========================================
@@ -105,12 +172,14 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
 
-            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String method = exchange.getRequestMethod();
+
+            if ("OPTIONS".equalsIgnoreCase(method)) {
                 exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
-            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            if ("GET".equalsIgnoreCase(method)) {
                 // Construct JSON representation of menu items from inventory
                 // (Adapt method calls to match your exact Inventory / MenuItem getters)
                 StringBuilder json = new StringBuilder("[");
@@ -125,6 +194,61 @@ public class HTTPServer {
                 json.append("]");
 
                 sendResponse(exchange, 200, json.toString(), "application/json");
+
+            } else if ("POST".equalsIgnoreCase(method)) {
+                if (!isAuthorized(exchange, "MANAGER")) return;
+
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                try {
+                    int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+                    String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+
+                    if (inventory.addItem(new MenuItem(id, name, price))) {
+                        sendResponse(exchange, 201, "{\"status\":\"Item added\"}", "application/json");
+                    } else {
+                        sendResponse(exchange, 400, "{\"error\":\"Item ID already exists\"}", "application/json");
+                    }
+                } catch (Exception e) {
+                    sendResponse(exchange, 400, "{\"error\":\"Invalid item data format\"}", "application/json");
+                }
+
+            } else if ("PUT".equalsIgnoreCase(method)) {
+                if (!isAuthorized(exchange, "MANAGER")) return;
+
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                try {
+                    int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+                    String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+
+                    if (inventory.editItem(id, name, price)) {
+                        sendResponse(exchange, 200, "{\"status\":\"Item updated\"}", "application/json");
+                    } else {
+                        sendResponse(exchange, 404, "{\"error\":\"Item ID not found\"}", "application/json");
+                    }
+                } catch (Exception e) {
+                    sendResponse(exchange, 400, "{\"error\":\"Invalid item data format\"}", "application/json");
+                }
+
+            } else if ("DELETE".equalsIgnoreCase(method)) {
+                if (!isAuthorized(exchange, "MANAGER")) return;
+
+                String query = exchange.getRequestURI().getQuery();
+                if (query != null && query.startsWith("id=")) {
+                    try {
+                        int id = Integer.parseInt(query.substring(3));
+                        if (inventory.removeItem(id)) {
+                            sendResponse(exchange, 200, "{\"status\":\"Item removed\"}", "application/json");
+                        } else {
+                            sendResponse(exchange, 404, "{\"error\":\"Item not found\"}", "application/json");
+                        }
+                    } catch (NumberFormatException e) {
+                        sendResponse(exchange, 400, "{\"error\":\"Invalid ID format\"}", "application/json");
+                    }
+                } else {
+                    sendResponse(exchange, 400, "{\"error\":\"Missing id query parameter\"}", "application/json");
+                }
             } else {
                 sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
             }
@@ -147,10 +271,14 @@ public class HTTPServer {
             }
 
             if ("GET".equalsIgnoreCase(method)) {
-                // Returns the real-time queue snapshot as JSON
+                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+
                 String jsonResponse = orderQueue.toJson();
                 sendResponse(exchange, 200, jsonResponse, "application/json");
+
             } else if ("POST".equalsIgnoreCase(method)) {
+                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+
                 InputStream is = exchange.getRequestBody();
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
@@ -158,7 +286,6 @@ public class HTTPServer {
                     int itemId = Integer.parseInt(body.replaceAll(".*\"itemId\"\\s*:\\s*(\\d+).*", "$1"));
                     int quantity = Integer.parseInt(body.replaceAll(".*\"quantity\"\\s*:\\s*(\\d+).*", "$1"));
 
-                    // Parse the customer alias string, fallback to "Guest" if not found
                     String customerAlias = "Guest";
                     if (body.contains("\"customerAlias\"")) {
                         customerAlias = body.replaceAll(".*\"customerAlias\"\\s*:\\s*\"([^\"]+)\".*", "$1");
@@ -173,7 +300,10 @@ public class HTTPServer {
                 } catch (Exception e) {
                     sendResponse(exchange, 400, "{\"error\":\"Malformed JSON request\"}", "application/json");
                 }
+
             } else if ("DELETE".equalsIgnoreCase(method)) {
+                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+
                 if (orderQueue.isEmpty()) {
                     sendResponse(exchange, 400, "{\"error\":\"No pending orders to fulfill\"}", "application/json");
                 } else {

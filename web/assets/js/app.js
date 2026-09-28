@@ -1,10 +1,17 @@
 // --- Global State ---
 let currentMenu = [];
+let authToken = localStorage.getItem('token');
+let currentUserRole = localStorage.getItem('role');
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    loadMenu();
+    
+    if (authToken && currentUserRole) {
+        showApp();
+    } else {
+        showSection('login-section');
+    }
     
     // Set up polling for the order queue (updates every 3 seconds)
     setInterval(() => {
@@ -14,17 +21,90 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
 });
 
-// --- Navigation ---
+async function fetchAuth(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (authToken) options.headers['Authorization'] = 'Bearer ' + authToken;
+    
+    const response = await fetch(url, options);
+    if (response.status === 401 || response.status === 403) {
+        logout();
+        showToast('Session expired or access denied.', 'error');
+    }
+    return response;
+}
+
+// --- Navigation & Auth ---
+async function handleLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ username: user, password: pass })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            authToken = data.token;
+            currentUserRole = data.role;
+            localStorage.setItem('token', authToken);
+            localStorage.setItem('role', currentUserRole);
+            showToast('Login successful', 'success');
+            showApp();
+        } else {
+            showToast('Invalid credentials', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+function logout() {
+    authToken = null;
+    currentUserRole = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    
+    document.getElementById('main-nav').classList.add('hidden');
+    showSection('login-section');
+}
+
+function showApp() {
+    document.getElementById('main-nav').classList.remove('hidden');
+    showSection('menu-section');
+    applyRBAC();
+}
+
+function applyRBAC() {
+    const managerElements = document.querySelectorAll('.manager-only');
+    managerElements.forEach(el => {
+        if (currentUserRole === 'MANAGER') {
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+}
+
 function showSection(sectionId) {
     // Hide all sections
+    document.getElementById('login-section').classList.add('hidden-section');
+    document.getElementById('login-section').classList.remove('active-section');
     document.getElementById('menu-section').classList.add('hidden-section');
     document.getElementById('menu-section').classList.remove('active-section');
     document.getElementById('orders-section').classList.add('hidden-section');
     document.getElementById('orders-section').classList.remove('active-section');
     
-    // Reset nav links
-    document.getElementById('nav-menu').classList.remove('active');
-    document.getElementById('nav-orders').classList.remove('active');
+    // Reset nav links (only if showing app sections)
+    if(sectionId !== 'login-section') {
+        document.getElementById('nav-menu').classList.remove('active');
+        document.getElementById('nav-orders').classList.remove('active');
+    }
     
     // Show target section
     document.getElementById(sectionId).classList.remove('hidden-section');
@@ -34,7 +114,7 @@ function showSection(sectionId) {
     if (sectionId === 'menu-section') {
         document.getElementById('nav-menu').classList.add('active');
         loadMenu();
-    } else {
+    } else if (sectionId === 'orders-section') {
         document.getElementById('nav-orders').classList.add('active');
         loadOrders();
     }
@@ -70,9 +150,10 @@ function updateThemeButton(theme, btn) {
 
 async function loadMenu() {
     const grid = document.getElementById('menu-grid');
+    if(!authToken) return; // Wait until logged in
     
     try {
-        const response = await fetch('/api/menu');
+        const response = await fetchAuth('/api/menu');
         if (!response.ok) throw new Error('Failed to fetch menu');
         
         currentMenu = await response.json();
@@ -86,16 +167,28 @@ async function loadMenu() {
         currentMenu.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
+            
+            let managerActions = '';
+            if (currentUserRole === 'MANAGER') {
+                managerActions = `
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary btn-full" onclick="openManageModal(${item.id}, '${item.name}', ${item.price})" style="font-size: 0.8rem; padding: 0.25rem;">Edit</button>
+                    <button class="btn btn-primary btn-full" onclick="deleteMenuItem(${item.id})" style="font-size: 0.8rem; padding: 0.25rem; background: var(--error-color);">Delete</button>
+                </div>
+                `;
+            }
+
             card.innerHTML = `
                 <div>
                     <h3 class="card-title">${item.name}</h3>
                     <div class="card-id">ID: ${item.id}</div>
                 </div>
-                <div>
+                <div style="margin-top:1rem;">
                     <div class="card-price">$${item.price.toFixed(2)}</div>
                     <button class="btn btn-primary btn-full" onclick="openOrderModal(${item.id}, '${item.name}', ${item.price})">
                         Order Now
                     </button>
+                    ${managerActions}
                 </div>
             `;
             grid.appendChild(card);
@@ -103,7 +196,6 @@ async function loadMenu() {
 
     } catch (error) {
         console.error('Error loading menu:', error);
-        grid.innerHTML = '<div class="text-center" style="grid-column: 1 / -1; color: red;">Failed to load menu. Is the Java server running?</div>';
         showToast('Failed to load menu data.', 'error');
     }
 }
@@ -111,20 +203,26 @@ async function loadMenu() {
 async function loadOrders() {
     const tbody = document.getElementById('orders-table-body');
     const countDisplay = document.getElementById('pending-count');
+    if(!authToken) return;
     
     try {
-        const response = await fetch('/api/orders');
+        const response = await fetchAuth('/api/orders');
         if (!response.ok) throw new Error('Failed to fetch orders');
         
-        const orders = await response.json();
-        countDisplay.textContent = orders.length;
+        // CRITICAL FIX: Parse the JSON response into the 'orders' variable
+        const orders = await response.json(); 
+        
+        // Update the pending count UI
+        if (countDisplay) countDisplay.textContent = orders.length;
+        
+        // Clear the table before injecting new rows (prevents duplicates from polling)
+        tbody.innerHTML = '';
         
         if (orders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">No pending orders.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = '';
         orders.forEach((order, index) => {
             // Try to find the item name from our cached menu
             const menuItem = currentMenu.find(item => item.id === order.itemId);
@@ -143,7 +241,7 @@ async function loadOrders() {
 
     } catch (error) {
         console.error('Error loading orders:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color: red;">Failed to load queue.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color: var(--error-color);">Error loading queue.</td></tr>';
     }
 }
 
@@ -161,19 +259,14 @@ async function submitOrder(event) {
     };
 
     try {
-        const response = await fetch('/api/orders', {
+        const response = await fetchAuth('/api/orders', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify(orderData)
         });
 
         if (response.ok) {
             showToast('Order placed successfully!', 'success');
-            closeModal();
-            // Optional: Auto-switch to orders tab to see it
-            // showSection('orders-section'); 
+            closeModal('order-modal');
         } else {
             const err = await response.json();
             showToast(err.error || 'Failed to place order.', 'error');
@@ -186,7 +279,7 @@ async function submitOrder(event) {
 
 async function fulfillNextOrder() {
     try {
-        const response = await fetch('/api/orders', {
+        const response = await fetchAuth('/api/orders', {
             method: 'DELETE'
         });
 
@@ -204,28 +297,88 @@ async function fulfillNextOrder() {
     }
 }
 
+
+async function deleteMenuItem(id) {
+    if(!confirm('Are you sure you want to remove item ID: ' + id + '?')) return;
+    
+    try {
+        const res = await fetchAuth('/api/menu?id=' + id, { method: 'DELETE' });
+        if(res.ok) {
+            showToast('Item Removed', 'success');
+            loadMenu();
+        } else {
+            const err = await res.json();
+            showToast(err.error, 'error');
+        }
+    } catch (e) {
+        showToast('Error deleting item', 'error');
+    }
+}
+
+async function submitManagedItem(e) {
+    e.preventDefault();
+    const mode = document.getElementById('manage-mode').value;
+    const id = document.getElementById('manage-id').value;
+    const name = document.getElementById('manage-name').value;
+    const price = document.getElementById('manage-price').value;
+    
+    const method = mode === 'add' ? 'POST' : 'PUT';
+    
+    try {
+        const res = await fetchAuth('/api/menu', {
+            method: method,
+            body: JSON.stringify({id: parseInt(id), name: name, price: parseFloat(price)})
+        });
+        if(res.ok) {
+            showToast(mode === 'add' ? 'Item Added' : 'Item Updated', 'success');
+            closeModal('manage-modal');
+            loadMenu();
+        } else {
+            const err = await res.json();
+            showToast(err.error, 'error');
+        }
+    } catch(err) {
+        showToast('Network error saving item', 'error');
+    }
+}
+
 // --- Modal Handling ---
 
 function openOrderModal(id, name, price) {
     document.getElementById('order-item-id').value = id;
     document.getElementById('modal-item-name').textContent = name;
     document.getElementById('modal-item-price').textContent = `$${price.toFixed(2)}`;
-    document.getElementById('order-quantity').value = 1; // reset default
-    document.getElementById('customer-alias').value = ''; // reset default
+    document.getElementById('order-quantity').value = 1; 
+    document.getElementById('customer-alias').value = ''; 
     
     document.getElementById('order-modal').classList.remove('hidden');
 }
 
-function closeModal() {
-    document.getElementById('order-modal').classList.add('hidden');
+function openManageModal(id = '', name = '', price = '') {
+    const isEdit = id !== '';
+    document.getElementById('manage-title').textContent = isEdit ? 'Edit Menu Item' : 'Add New Item';
+    document.getElementById('manage-mode').value = isEdit ? 'edit' : 'add';
+    
+    const idField = document.getElementById('manage-id');
+    idField.value = id;
+    idField.readOnly = isEdit; // Can't change ID on edit in this data structure
+    
+    document.getElementById('manage-name').value = name;
+    document.getElementById('manage-price').value = price;
+    
+    document.getElementById('manage-modal').classList.remove('hidden');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
 }
 
 // Close modal if clicking outside the content box
 window.onclick = function(event) {
-    const modal = document.getElementById('order-modal');
-    if (event.target === modal) {
-        closeModal();
-    }
+    const orderModal = document.getElementById('order-modal');
+    const manageModal = document.getElementById('manage-modal');
+    if (event.target === orderModal) closeModal('order-modal');
+    if (event.target === manageModal) closeModal('manage-modal');
 }
 
 // --- UI Helpers ---
