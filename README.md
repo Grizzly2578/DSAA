@@ -1,6 +1,6 @@
 # Java DSA Cafe Management System
 
-![NetBeans Cafe Logo](web/assets/images/logo.jpg)
+![NetBeans Cafe Logo](web/assets/images/logo.png)
 
 ## ☕ Fuel For Your Code
 
@@ -61,7 +61,7 @@ DSAA/
         ├── js/
         │   └── app.js        # API Calls, DOM Manipulation, State Management
         └── images/
-            └── logo.jpg      # Branding
+            └── logo.png      # Branding
 ```
 
 ### Running the Application
@@ -112,7 +112,7 @@ The `HTTPServer.java` exposes the following endpoints:
 
 ## 🛠️ Built With
 
-*   **Java (Core):** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
+*   **Java 17:** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
 *   **HTML5/CSS3:** Semantic structure and custom styling (CSS Variables for theming).
 *   **Vanilla JavaScript (ES6+):** Asynchronous `fetch` API, DOM manipulation, and LocalStorage.
 
