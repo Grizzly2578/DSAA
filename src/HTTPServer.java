@@ -109,8 +109,8 @@ public class HTTPServer {
 
             // Hard coded login credentials for demo purposes
             String role = null;
-            if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
-            else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
+            if ("admin".equals(username) && "admin1234".equals(password)) role = "MANAGER";
+            else if ("barista".equals(username) && "coffee1234".equals(password)) role = "BARISTA";
             return role;
         }
     }
