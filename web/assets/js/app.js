@@ -148,6 +148,64 @@ function updateThemeButton(theme, btn) {
 
 // --- API Calls & Rendering ---
 
+async function searchItem() {
+    const searchId = document.getElementById('search-id').value;
+    if (!searchId) {
+        loadMenu(); // Reset to full menu if input is empty
+        return;
+    }
+
+    try {
+        const response = await fetchAuth('/api/menu?id=' + searchId);
+        if (!response.ok) throw new Error('Failed to search item');
+        
+        const searchData = await response.json();
+        renderMenu(searchData); // Render only the matching item
+    } catch (error) {
+        console.error('Error searching:', error);
+        showToast('Failed to search item.', 'error');
+    }
+}
+
+function renderMenu(itemsToRender) {
+    const grid = document.getElementById('menu-grid');
+    if (itemsToRender.length === 0) {
+        grid.innerHTML = '<div class="text-center" style="grid-column: 1 / -1; padding: 2rem;">No items found.</div>';
+        return;
+    }
+
+    grid.innerHTML = '';
+    itemsToRender.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        
+        let managerActions = '';
+        if (currentUserRole === 'MANAGER') {
+            managerActions = `
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary btn-full" onclick="openManageModal(${item.id}, '${item.name}', ${item.price})" style="font-size: 0.8rem; padding: 0.25rem;">Edit</button>
+                <button class="btn btn-primary btn-full" onclick="deleteMenuItem(${item.id})" style="font-size: 0.8rem; padding: 0.25rem; background: var(--error-color);">Delete</button>
+            </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <div>
+                <h3 class="card-title">${item.name}</h3>
+                <div class="card-id">ID: ${item.id}</div>
+            </div>
+            <div style="margin-top:1rem;">
+                <div class="card-price">$${item.price.toFixed(2)}</div>
+                <button class="btn btn-primary btn-full" onclick="openOrderModal(${item.id}, '${item.name}', ${item.price})">
+                    Order Now
+                </button>
+                ${managerActions}
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
 async function loadMenu() {
     const grid = document.getElementById('menu-grid');
     if(!authToken) return; // Wait until logged in
@@ -157,42 +215,7 @@ async function loadMenu() {
         if (!response.ok) throw new Error('Failed to fetch menu');
         
         currentMenu = await response.json();
-        
-        if (currentMenu.length === 0) {
-            grid.innerHTML = '<div class="text-center" style="grid-column: 1 / -1;">No items currently available.</div>';
-            return;
-        }
-
-        grid.innerHTML = '';
-        currentMenu.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            
-            let managerActions = '';
-            if (currentUserRole === 'MANAGER') {
-                managerActions = `
-                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-                    <button class="btn btn-secondary btn-full" onclick="openManageModal(${item.id}, '${item.name}', ${item.price})" style="font-size: 0.8rem; padding: 0.25rem;">Edit</button>
-                    <button class="btn btn-primary btn-full" onclick="deleteMenuItem(${item.id})" style="font-size: 0.8rem; padding: 0.25rem; background: var(--error-color);">Delete</button>
-                </div>
-                `;
-            }
-
-            card.innerHTML = `
-                <div>
-                    <h3 class="card-title">${item.name}</h3>
-                    <div class="card-id">ID: ${item.id}</div>
-                </div>
-                <div style="margin-top:1rem;">
-                    <div class="card-price">$${item.price.toFixed(2)}</div>
-                    <button class="btn btn-primary btn-full" onclick="openOrderModal(${item.id}, '${item.name}', ${item.price})">
-                        Order Now
-                    </button>
-                    ${managerActions}
-                </div>
-            `;
-            grid.appendChild(card);
-        });
+        renderMenu(currentMenu);
 
     } catch (error) {
         console.error('Error loading menu:', error);

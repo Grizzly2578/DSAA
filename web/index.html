@@ -53,9 +53,13 @@
         <section id="menu-section" class="hidden-section">
             <div class="section-header">
                 <h2>Our Menu</h2>
-                <div class="action-buttons">
+                <div class="action-buttons" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; gap: 0.25rem; align-items: center;">
+                        <input type="number" id="search-id" placeholder="Search ID..." style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; max-width: 120px; font-size: 0.9rem;" onkeypress="if(event.key === 'Enter') searchItem()">
+                        <button onclick="searchItem()" class="btn btn-secondary">🔍</button>
+                    </div>
                     <button onclick="openManageModal()" class="btn btn-primary manager-only hidden">Add New Item</button>
-                    <button onclick="loadMenu()" class="btn btn-secondary">Refresh Menu</button>
+                    <button onclick="document.getElementById('search-id').value=''; loadMenu()" class="btn btn-secondary">Refresh Menu</button>
                 </div>
             </div>
             

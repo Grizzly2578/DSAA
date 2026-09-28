@@ -189,29 +189,45 @@ public class HTTPServer {
             }
 
             if ("GET".equalsIgnoreCase(method)) {
-                // Construct JSON representation of menu items from inventory
-                // (Adapt method calls to match your exact Inventory / MenuItem getters)
-                StringBuilder json = new StringBuilder("[");
+                String query = exchange.getRequestURI().getQuery();
+                if (query != null && query.startsWith("id=")) {
+                    try {
+                        int searchId = Integer.parseInt(query.substring(3));
+                        MenuItem item = inventory.getItemById(searchId); // Uses Inventory's Binary Search
 
-                for (int i = 0; i < inventory.size(); i++) {
-                    MenuItem item = inventory.get(i);
-                    json.append(String.format("{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}",
-                            item.getId(), item.getName(), item.getPrice()));
-                    if (i < inventory.size() - 1) json.append(",");
+                        if (item != null) {
+                            String json = String.format("[{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}]",
+                                    item.getId(), item.getName(), item.getPrice());
+                            sendResponse(exchange, 200, json, "application/json");
+                        } else {
+                            sendResponse(exchange, 200, "[]", "application/json"); // Return empty array if not found
+                        }
+                    } catch (NumberFormatException e) {
+                        sendResponse(exchange, 400, "{\"error\":\"Invalid ID format\"}", "application/json");
+                    }
+                } else {
+                    // Construct JSON representation of menu items from inventory
+                    StringBuilder json = new StringBuilder("[");
+
+                    for (int i = 0; i < inventory.size(); i++) {
+                        MenuItem item = inventory.get(i);
+                        json.append(String.format("{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}",
+                                item.getId(), item.getName(), item.getPrice()));
+                        if (i < inventory.size() - 1) json.append(",");
+                    }
+
+                    json.append("]");
+
+                    sendResponse(exchange, 200, json.toString(), "application/json");
                 }
-
-                json.append("]");
-
-                sendResponse(exchange, 200, json.toString(), "application/json");
-
             } else if ("POST".equalsIgnoreCase(method)) {
-                if (isAuthorized(exchange, "MANAGER")) return;
+                if (!isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
 
                     if (inventory.addItem(new MenuItem(id, name, price))) {
                         sendResponse(exchange, 201, "{\"status\":\"Item added\"}", "application/json");
@@ -223,13 +239,13 @@ public class HTTPServer {
                 }
 
             } else if ("PUT".equalsIgnoreCase(method)) {
-                if (isAuthorized(exchange, "MANAGER")) return;
+                if (!isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
 
                     if (inventory.editItem(id, name, price)) {
                         sendResponse(exchange, 200, "{\"status\":\"Item updated\"}", "application/json");
@@ -241,7 +257,7 @@ public class HTTPServer {
                 }
 
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                if (isAuthorized(exchange, "MANAGER")) return;
+                if (!isAuthorized(exchange, "MANAGER")) return;
 
                 String query = exchange.getRequestURI().getQuery();
                 if (query != null && query.startsWith("id=")) {
