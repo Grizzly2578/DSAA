@@ -1,6 +1,6 @@
 # Java DSA Cafe Management System
 
-![NetBeans Cafe Logo](web/assets/images/logo.png)
+![NetBeans Cafe Logo](web/assets/images/logo.jpg)
 
 ## ☕ Fuel For Your Code
 
