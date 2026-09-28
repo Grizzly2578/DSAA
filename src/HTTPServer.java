@@ -109,8 +109,8 @@ public class HTTPServer {
 
             // Hard coded login credentials for demo purposes
             String role = null;
-            if ("admin".equals(username) && "admin1234".equals(password)) role = "MANAGER";
-            else if ("barista".equals(username) && "coffee1234".equals(password)) role = "BARISTA";
+            if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
+            else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
             return role;
         }
     }
@@ -227,7 +227,7 @@ public class HTTPServer {
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
 
                     if (inventory.addItem(new MenuItem(id, name, price))) {
                         sendResponse(exchange, 201, "{\"status\":\"Item added\"}", "application/json");
@@ -245,7 +245,7 @@ public class HTTPServer {
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
 
                     if (inventory.editItem(id, name, price)) {
                         sendResponse(exchange, 200, "{\"status\":\"Item updated\"}", "application/json");
