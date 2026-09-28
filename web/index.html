@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetBeans Cafe</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo-container">
+            <img src="/assets/images/logo.png" alt="NetBeans Cafe Logo" class="logo">
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="showSection('menu-section')" class="active" id="nav-menu">Menu</a></li>
+                <li><a href="#" onclick="showSection('orders-section')" id="nav-orders">Order Queue</a></li>
+                <li><button id="theme-toggle" class="btn btn-secondary theme-btn">🌙</button></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="app-main">
+        <!-- Error/Success Messages -->
+        <div id="toast-container" class="toast-container hidden">
+            <span id="toast-message"></span>
+        </div>
+
+        <!-- Menu Section -->
+        <section id="menu-section" class="active-section">
+            <div class="section-header">
+                <h2>Our Menu</h2>
+                <button onclick="loadMenu()" class="btn btn-secondary">Refresh Menu</button>
+            </div>
+            
+            <div id="menu-grid" class="grid-container">
+                <!-- Menu items will be injected here via JS -->
+                <div class="loading">Loading menu...</div>
+            </div>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="orders-section" class="hidden-section">
+            <div class="section-header">
+                <h2>Current Order Queue</h2>
+                <div class="action-buttons">
+                    <button onclick="fulfillNextOrder()" class="btn btn-primary">Fulfill Next Order</button>
+                    <button onclick="loadOrders()" class="btn btn-secondary">Refresh Queue</button>
+                </div>
+            </div>
+            
+            <div class="queue-container">
+                <div class="queue-stats">
+                    <span>Pending Orders: <strong id="pending-count">0</strong></span>
+                </div>
+                
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Position</th>
+                            <th>Item ID</th>
+                            <th>Item Name</th>
+                            <th>Customer Alias</th>
+                            <th>Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- Orders will be injected here via JS -->
+                        <tr>
+                            <td colspan="4" class="text-center loading">Loading queue...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Order Modal -->
+        <div id="order-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+                <h3>Place Order</h3>
+                <h4 id="modal-item-name"></h4>
+                <p id="modal-item-price"></p>
+                
+                <form id="order-form" onsubmit="submitOrder(event)">
+                    <input type="hidden" id="order-item-id">
+                    
+                    <div class="form-group">
+                        <label for="order-quantity">Quantity:</label>
+                        <input type="number" id="order-quantity" min="1" max="99" value="1" required>
+                        <label for="customer-alias">Customer Alias:</label>
+                        <input type="text" id="customer-alias" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add to Queue</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="/assets/js/app.js"></script>
+</body>
+</html>
