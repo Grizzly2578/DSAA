@@ -63,13 +63,13 @@ public class HTTPServer {
         String role = getRole(exchange);
         if (role == null) {
             sendResponse(exchange, 401, "{\"error\":\"Unauthorized. Please log in.\"}", "application/json");
-            return false;
+            return true;
         }
         for (String allowed : allowedRoles) {
-            if (allowed.equals(role)) return true;
+            if (allowed.equals(role)) return false;
         }
         sendResponse(exchange, 403, "{\"error\":\"Forbidden. Insufficient permissions.\"}", "application/json");
-        return false;
+        return true;
     }
 
     private class LoginApiHandler implements HttpHandler {
@@ -85,12 +85,7 @@ public class HTTPServer {
                 InputStream is = exchange.getRequestBody();
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 try {
-                    String username = body.replaceAll("(?s).*\"username\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    String password = body.replaceAll("(?s).*\"password\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-
-                    String role = null;
-                    if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
-                    else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
+                    String role = getRole(body);
 
                     if (role != null) {
                         String token = UUID.randomUUID().toString();
@@ -105,6 +100,18 @@ public class HTTPServer {
             } else {
                 sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
             }
+        }
+
+        private static String getRole(String body) {
+            String username = body.replaceAll("(?s).*\"username\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+            String password = body.replaceAll("(?s).*\"password\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+
+            // Hard coded login credentials for demo purposes
+            String role = null;
+            if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
+            else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
+            return role;
         }
     }
 
@@ -129,8 +136,10 @@ public class HTTPServer {
             Path filePath = Paths.get(WEB_ROOT, path);
 
             // Security check: prevent directory traversal (e.g., ../)
-            if (!filePath.normalize().startsWith(Paths.get(WEB_ROOT).toAbsolutePath().normalize())
-                    && !filePath.toAbsolutePath().normalize().startsWith(Paths.get(WEB_ROOT).toAbsolutePath().normalize())) {
+            Path _path = Paths.get(WEB_ROOT);
+
+            if (!filePath.normalize().startsWith(_path.toAbsolutePath().normalize())
+                    && !filePath.toAbsolutePath().normalize().startsWith(_path.toAbsolutePath().normalize())) {
                 sendResponse(exchange, 403, "Access Denied", "text/plain");
                 return;
             }
@@ -196,13 +205,13 @@ public class HTTPServer {
                 sendResponse(exchange, 200, json.toString(), "application/json");
 
             } else if ("POST".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
 
                     if (inventory.addItem(new MenuItem(id, name, price))) {
                         sendResponse(exchange, 201, "{\"status\":\"Item added\"}", "application/json");
@@ -214,13 +223,13 @@ public class HTTPServer {
                 }
 
             } else if ("PUT".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
                     int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
                     String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d\\.]+).*", "$1"));
+                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
 
                     if (inventory.editItem(id, name, price)) {
                         sendResponse(exchange, 200, "{\"status\":\"Item updated\"}", "application/json");
@@ -232,7 +241,7 @@ public class HTTPServer {
                 }
 
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String query = exchange.getRequestURI().getQuery();
                 if (query != null && query.startsWith("id=")) {
@@ -271,13 +280,13 @@ public class HTTPServer {
             }
 
             if ("GET".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+                if (isAuthorized(exchange, "MANAGER", "BARISTA")) return;
 
                 String jsonResponse = orderQueue.toJson();
                 sendResponse(exchange, 200, jsonResponse, "application/json");
 
             } else if ("POST".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+                if (isAuthorized(exchange, "MANAGER", "BARISTA")) return;
 
                 InputStream is = exchange.getRequestBody();
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
@@ -302,7 +311,7 @@ public class HTTPServer {
                 }
 
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER", "BARISTA")) return;
+                if (isAuthorized(exchange, "MANAGER", "BARISTA")) return;
 
                 if (orderQueue.isEmpty()) {
                     sendResponse(exchange, 400, "{\"error\":\"No pending orders to fulfill\"}", "application/json");
