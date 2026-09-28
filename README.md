@@ -37,6 +37,21 @@ The web application features a secure, token-based authentication system built d
 
 ---
 
+## 🏗️ Data Structures & ADTs Architecture
+
+This project intentionally isolates Abstract Data Types (ADTs) and relies on specific concrete Data Structures to ensure optimal performance, memory efficiency, and thread safety across the dual-interface system.
+
+| Category | Name | File / Component | Purpose & Usage |
+| :--- | :--- | :--- | :--- |
+| **ADT** | **Ordered List** | `Inventory.java` | Manages the menu catalog. Strictly enforces sorted order by Item ID upon insertion to guarantee preconditions for algorithms like Binary Search. |
+| **ADT** | **FIFO Queue** | `OrderQueue.java` | Manages pending customer orders. Ensures strictly First-In-First-Out (FIFO) processing for fair and chronological order fulfillment. |
+| **Data Structure** | **Dynamic Array (`ArrayList`)** | `Inventory.java` | The underlying storage for the Ordered List ADT. Provides memory-contiguous $O(1)$ random access, which is mathematically required to achieve $O(\log n)$ efficiency during Binary Search. |
+| **Data Structure** | **`ArrayDeque`** | `OrderQueue.java` | The underlying storage for the Queue ADT. Provides amortized $O(1)$ enqueue and dequeue operations at both ends. Chosen over `LinkedList` for superior memory efficiency and CPU cache locality (no node allocation overhead). |
+| **Data Structure** | **`ConcurrentHashMap`** | `HTTPServer.java` | Stores active authentication sessions mapping UUID Tokens to User Roles. Provides thread-safe, lock-stripped $O(1)$ lookups and insertions, safely handling simultaneous requests from the multithreaded HTTP worker pool. |
+| **Data Structure** | **`Record`** | `Order.java` | An immutable data carrier structure. Used to safely construct and pass order details (Item ID, Quantity, Customer Alias) between the HTTP worker threads, the CLI main thread, and the core Queue without risk of external mutation. |
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -61,7 +76,7 @@ DSAA/
         ├── js/
         │   └── app.js        # API Calls, DOM Manipulation, State Management
         └── images/
-            └── logo.png      # Branding
+            └── logo.jpg      # Branding
 ```
 
 ### Running the Application
@@ -99,6 +114,7 @@ The `HTTPServer.java` exposes the following endpoints:
 | :--- | :--- | :--- | :--- | :--- |
 | `/api/login` | `POST` | *None* | Authenticates user and returns JWT token. | `{"username":"admin", "password":"..."}` |
 | `/api/menu` | `GET` | *None* | Returns the full menu array. | N/A |
+| `/api/menu?id=X`| `GET` | *None* | Performs a Binary Search and returns a specific item. | N/A |
 | `/api/menu` | `POST` | Manager | Adds a new MenuItem to the Inventory. | `{"id":106, "name":"Tea", "price":2.50}` |
 | `/api/menu` | `PUT` | Manager | Edits an existing MenuItem. | `{"id":106, "name":"Green Tea", "price":2.75}` |
 | `/api/menu?id=X`| `DELETE` | Manager | Removes item ID 'X' from Inventory. | N/A |
