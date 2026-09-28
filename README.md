@@ -40,7 +40,7 @@ The web application features a secure, token-based authentication system built d
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   Java Development Kit (JDK) 17 or higher.
+*   Java Development Kit (JDK) 25 or higher.
 *   An IDE (IntelliJ IDEA recommended).
 
 ### Project Structure
