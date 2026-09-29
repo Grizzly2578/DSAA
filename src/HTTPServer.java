@@ -111,7 +111,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, 0);
+                exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
@@ -164,7 +164,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, 0);
+                exchange.sendResponseHeaders(204, -1);
                 return;
             }
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -252,7 +252,7 @@ public class HTTPServer {
             String method = exchange.getRequestMethod();
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
-                exchange.sendResponseHeaders(204, 0);
+                exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
@@ -366,7 +366,7 @@ public class HTTPServer {
             String method = exchange.getRequestMethod();
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
-                exchange.sendResponseHeaders(204, 0);
+                exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
@@ -427,7 +427,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, 0);
+                exchange.sendResponseHeaders(204, -1);
                 return;
             }
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -532,7 +532,7 @@ public class HTTPServer {
 
     private static List<CartItem> parseCartItems(String body) {
         List<CartItem> items = new ArrayList<>();
-        Matcher matcher = Pattern.compile("\\{\\s*\"itemId\"\\s*:\\s*(\\d+)\\s*,\\s*\"size\"\\s*:\\s*\"([A-Za-z]+)\"\\s*,\\s*\"quantity\"\\s*:\\s*(\\d+)\\s*}").matcher(body);
+        Matcher matcher = Pattern.compile("\\{\\s*\\\"itemId\\\"\\s*:\\s*(\\d+)\\s*,\\s*\\\"size\\\"\\s*:\\s*\\\"([A-Za-z]+)\\\"\\s*,\\s*\\\"quantity\\\"\\s*:\\s*(\\d+)\\s*\\}").matcher(body);
         while (matcher.find()) {
             if (items.size() >= 50) throw new IllegalArgumentException("Too many cart items");
             items.add(new CartItem(Integer.parseInt(matcher.group(1)),
@@ -555,7 +555,7 @@ public class HTTPServer {
     }
 
     private static String extractString(String body, String key) {
-        Matcher matcher = Pattern.compile("(?s).*\"" + key + "\"\\s*:\\s*(?:\"([^\"]*)\"|([-+]?[0-9]*\\.?[0-9]+)).*").matcher(body);
+        Matcher matcher = Pattern.compile("(?s).*\\\"" + key + "\\\"\\s*:\\s*(?:\\\"([^\\\"]*)\\\"|([-+]?[0-9]*\\.?[0-9]+)).*").matcher(body);
         if (!matcher.matches()) throw new IllegalArgumentException("Missing " + key);
         return matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
     }
