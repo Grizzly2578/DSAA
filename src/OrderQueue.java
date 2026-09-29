@@ -39,10 +39,15 @@ public class OrderQueue {
         int total = queue.size();
 
         for (Order order : queue) {
-            sb.append(String.format("{\"itemId\":%d,\"quantity\":%d,\"customerAlias\":\"%s\"}",
-                    order.itemId(),
-                    order.quantity(),
-                    order.customerAlias()));
+            sb.append("{\"items\":[");
+            for (int i = 0; i < order.items().size(); i++) {
+                CartItem item = order.items().get(i);
+                sb.append(String.format("{\"itemId\":%d,\"size\":\"%s\",\"quantity\":%d}",
+                        item.itemId(), item.size(), item.quantity()));
+                if (i < order.items().size() - 1) sb.append(",");
+            }
+            sb.append(String.format("],\"customerAlias\":\"%s\",\"totalPrice\":%.2f}",
+                    escapeJson(order.customerAlias()), order.totalPrice()));
             if (++count < total) {
                 sb.append(",");
             }
@@ -59,12 +64,17 @@ public class OrderQueue {
         StringBuilder sb = new StringBuilder("Current Queue:\n");
         int index = 1;
         for (Order order : queue) {
-            sb.append(index++)
-                    .append(". Item ID: ").append(order.itemId())
-                    .append(" | Qty: ").append(order.quantity())
-                    .append(" | Alias: ").append(order.customerAlias())
-                    .append("\n");
+            sb.append(index++).append(". ");
+            for (CartItem item : order.items()) {
+                sb.append(item.quantity()).append(" x item ").append(item.itemId())
+                        .append(" (").append(item.size()).append(") | ");
+            }
+            sb.append("Alias: ").append(order.customerAlias()).append("\n");
         }
         return sb.toString().trim();
+    }
+
+    private static String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

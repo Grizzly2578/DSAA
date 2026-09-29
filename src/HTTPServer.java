@@ -9,9 +9,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class HTTPServer {
 
@@ -196,9 +201,7 @@ public class HTTPServer {
                         MenuItem item = inventory.getItemById(searchId); // Uses Inventory's Binary Search
 
                         if (item != null) {
-                            String json = String.format("[{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}]",
-                                    item.getId(), item.getName(), item.getPrice());
-                            sendResponse(exchange, 200, json, "application/json");
+                                sendResponse(exchange, 200, "[" + itemToJson(item) + "]", "application/json");
                         } else {
                             sendResponse(exchange, 200, "[]", "application/json"); // Return empty array if not found
                         }
@@ -218,8 +221,7 @@ public class HTTPServer {
                     StringBuilder json = new StringBuilder("[");
                     for (int i = 0; i < itemsToSerialize.size(); i++) {
                         MenuItem item = itemsToSerialize.get(i);
-                        json.append(String.format("{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}",
-                                item.getId(), item.getName(), item.getPrice()));
+                        json.append(itemToJson(item));
                         if (i < itemsToSerialize.size() - 1) json.append(",");
                     }
                     json.append("]");
@@ -231,11 +233,15 @@ public class HTTPServer {
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
-                    int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
-                    String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
+                        int id = Integer.parseInt(extractString(body, "id"));
+                        String name = extractString(body, "name");
+                        String type = extractString(body, "type");
+                        Map<Size, Double> prices = parsePrices(body, type);
 
-                    if (inventory.addItem(new MenuItem(id, name, price))) {
+                        MenuItem item = "Pastry".equalsIgnoreCase(type)
+                            ? new Pastry(id, name, prices.get(Size.STANDARD))
+                            : new Drink(id, name, prices.get(Size.SMALL), prices.get(Size.MEDIUM), prices.get(Size.LARGE));
+                        if (inventory.addItem(item)) {
                         sendResponse(exchange, 201, "{\"status\":\"Item added\"}", "application/json");
                     } else {
                         sendResponse(exchange, 400, "{\"error\":\"Item ID already exists\"}", "application/json");
@@ -249,11 +255,11 @@ public class HTTPServer {
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
-                    int id = Integer.parseInt(body.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
-                    String name = body.replaceAll("(?s).*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                    double price = Double.parseDouble(body.replaceAll("(?s).*\"price\"\\s*:\\s*([\\d.]+).*", "$1"));
+                    int id = Integer.parseInt(extractString(body, "id"));
+                    String name = extractString(body, "name");
+                    Map<Size, Double> prices = parsePrices(body, extractString(body, "type"));
 
-                    if (inventory.editItem(id, name, price)) {
+                    if (inventory.editItem(id, name, prices)) {
                         sendResponse(exchange, 200, "{\"status\":\"Item updated\"}", "application/json");
                     } else {
                         sendResponse(exchange, 404, "{\"error\":\"Item ID not found\"}", "application/json");
@@ -314,20 +320,22 @@ public class HTTPServer {
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
                 try {
-                    int itemId = Integer.parseInt(body.replaceAll(".*\"itemId\"\\s*:\\s*(\\d+).*", "$1"));
-                    int quantity = Integer.parseInt(body.replaceAll(".*\"quantity\"\\s*:\\s*(\\d+).*", "$1"));
-
+                    List<CartItem> cartItems = parseCartItems(body);
                     String customerAlias = "Guest";
                     if (body.contains("\"customerAlias\"")) {
-                        customerAlias = body.replaceAll(".*\"customerAlias\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                        customerAlias = extractString(body, "customerAlias");
                     }
 
-                    if (inventory.itemExists(itemId)) {
-                        orderQueue.enqueue(new Order(itemId, quantity, customerAlias));
-                        sendResponse(exchange, 201, "{\"status\":\"Order queued\"}", "application/json");
-                    } else {
-                        sendResponse(exchange, 404, "{\"error\":\"Item ID not found\"}", "application/json");
+                    for (CartItem cartItem : cartItems) {
+                        MenuItem menuItem = inventory.getItemById(cartItem.itemId());
+                        if (menuItem == null || !menuItem.supportsSize(cartItem.size())) {
+                            sendResponse(exchange, 404, "{\"error\":\"Item or size not found\"}", "application/json");
+                            return;
+                        }
                     }
+                    double totalPrice = inventory.calculateCartTotal(cartItems);
+                    orderQueue.enqueue(new Order(cartItems, customerAlias, totalPrice));
+                    sendResponse(exchange, 201, "{\"status\":\"Order queued\"}", "application/json");
                 } catch (Exception e) {
                     sendResponse(exchange, 400, "{\"error\":\"Malformed JSON request\"}", "application/json");
                 }
@@ -339,7 +347,8 @@ public class HTTPServer {
                     sendResponse(exchange, 400, "{\"error\":\"No pending orders to fulfill\"}", "application/json");
                 } else {
                     Order fulfilled = orderQueue.dequeue();
-                    sendResponse(exchange, 200, "{\"status\":\"Order fulfilled\", \"itemId\": " + fulfilled.itemId() + "}", "application/json");
+                        sendResponse(exchange, 200, String.format("{\"status\":\"Order fulfilled\", \"items\": %s, \"totalPrice\": %.2f}",
+                            orderItemsToJson(fulfilled), fulfilled.totalPrice()), "application/json");
                 }
             } else {
                 sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
@@ -360,7 +369,62 @@ public class HTTPServer {
 
     private static void addCorsHeaders(HttpExchange exchange) {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+
+    private static String itemToJson(MenuItem item) {
+        StringBuilder json = new StringBuilder(String.format("{\"id\":%d,\"name\":\"%s\",\"type\":\"%s\",\"prices\":{",
+                item.getId(), escapeJson(item.getName()), item.getType()));
+        int index = 0;
+        for (Map.Entry<Size, Double> price : item.getPrices().entrySet()) {
+            json.append(String.format("\"%s\":%.2f", price.getKey(), price.getValue()));
+            if (++index < item.getPrices().size()) json.append(",");
+        }
+        return json.append("}}").toString();
+    }
+
+    private static String orderItemsToJson(Order order) {
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < order.items().size(); i++) {
+            CartItem item = order.items().get(i);
+            json.append(String.format("{\"itemId\":%d,\"size\":\"%s\",\"quantity\":%d}",
+                    item.itemId(), item.size(), item.quantity()));
+            if (i < order.items().size() - 1) json.append(",");
+        }
+        return json.append("]").toString();
+    }
+
+    private static List<CartItem> parseCartItems(String body) {
+        List<CartItem> items = new ArrayList<>();
+        Matcher matcher = Pattern.compile("\\{\\s*\\\"itemId\\\"\\s*:\\s*(\\d+)\\s*,\\s*\\\"size\\\"\\s*:\\s*\\\"([A-Za-z]+)\\\"\\s*,\\s*\\\"quantity\\\"\\s*:\\s*(\\d+)\\s*\\}").matcher(body);
+        while (matcher.find()) {
+            items.add(new CartItem(Integer.parseInt(matcher.group(1)),
+                    Size.valueOf(matcher.group(2).toUpperCase()), Integer.parseInt(matcher.group(3))));
+        }
+        if (items.isEmpty()) throw new IllegalArgumentException("No cart items");
+        return items;
+    }
+
+    private static Map<Size, Double> parsePrices(String body, String type) {
+        HashMap<Size, Double> prices = new HashMap<>();
+        if ("Pastry".equalsIgnoreCase(type)) {
+            prices.put(Size.STANDARD, Double.parseDouble(extractString(body, "price")));
+        } else {
+            prices.put(Size.SMALL, Double.parseDouble(extractString(body, "smallPrice")));
+            prices.put(Size.MEDIUM, Double.parseDouble(extractString(body, "mediumPrice")));
+            prices.put(Size.LARGE, Double.parseDouble(extractString(body, "largePrice")));
+        }
+        return prices;
+    }
+
+    private static String extractString(String body, String key) {
+        Matcher matcher = Pattern.compile("(?s).*\\\"" + key + "\\\"\\s*:\\s*(?:\\\"([^\\\"]*)\\\"|([-+]?[0-9]*\\.?[0-9]+)).*").matcher(body);
+        if (!matcher.matches()) throw new IllegalArgumentException("Missing " + key);
+        return matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+    }
+
+    private static String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

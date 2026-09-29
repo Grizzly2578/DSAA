@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.util.InputMismatchException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -52,11 +54,11 @@ public class Main {
         IO.println("\nSelect an option:");
         IO.println("1. Search Item by ID (Binary Search)");
         IO.println("2. Display Menu (Ordered Array)");
-        IO.println("3. Add Menu Item");
+        IO.println("3. Add Drink or Pastry");
         IO.println("4. Remove Menu Item");
         IO.println("5. Edit Menu Item");
         IO.println("6. Display Queue (Queue)");
-        IO.println("7. Place Order (Enqueue)");
+        IO.println("7. Build Shopping Cart and Place Order");
         IO.println("8. Fulfill Next Order (Dequeue)");
         IO.println("9. Exit");
         IO.print("Choice: ");
@@ -99,10 +101,23 @@ public class Main {
 
         IO.print("Enter item name: ");
         String name = scanner.nextLine();
-        IO.print("Enter item price: ");
-        double price = readDouble(scanner);
+        IO.print("Enter item type (Drink/Pastry): ");
+        String type = scanner.nextLine();
 
-        inventory.addItem(new MenuItem(id, name, price));
+        MenuItem item;
+        if (type.equalsIgnoreCase("Pastry")) {
+            IO.print("Enter pastry price: ");
+            item = new Pastry(id, name, readDouble(scanner));
+        } else {
+            IO.print("Enter Small price: ");
+            double small = readDouble(scanner);
+            IO.print("Enter Medium price: ");
+            double medium = readDouble(scanner);
+            IO.print("Enter Large price: ");
+            item = new Drink(id, name, small, medium, readDouble(scanner));
+        }
+
+        inventory.addItem(item);
         IO.println("Item created and added to the menu.");
     }
 
@@ -136,22 +151,43 @@ public class Main {
     }
 
     private static void placeOrder(Scanner scanner, Inventory inventory, OrderQueue orderQueue) {
-        IO.print("Enter Item ID to order: ");
-        int id = readInt(scanner);
+        List<CartItem> cart = new ArrayList<>();
+        String addAnother = "y";
+        do {
+            IO.print("Enter Item ID to add to cart: ");
+            int id = readInt(scanner);
+            MenuItem item = inventory.getItemById(id);
+            if (item == null) {
+                IO.println("Item Not Found.");
+                continue;
+            }
+            Size size = chooseSize(scanner, item);
+            IO.print("Enter quantity: ");
+            int quantity = readInt(scanner);
+            if (quantity > 0) cart.add(new CartItem(id, size, quantity));
+            IO.print("Add another item? (y/n): ");
+            addAnother = scanner.nextLine();
+            System.out.printf("Current cart total: ₱%.2f%n", inventory.calculateCartTotal(cart));
+        } while (addAnother.equalsIgnoreCase("y"));
 
-        if (!inventory.itemExists(id)) {
-            IO.println("Item Not Found.");
-            return;
-        }
-
-        IO.print("Enter Order Quantity: ");
-        int quantity = readInt(scanner);
-
+        if (cart.isEmpty()) return;
         IO.print("Enter Customer Alias: ");
         String customerAlias = readStr(scanner);
 
-        orderQueue.enqueue(new Order(id, quantity, customerAlias));
-        IO.println("Order placed and added to the Order Queue.");
+        double totalPrice = inventory.calculateCartTotal(cart);
+        orderQueue.enqueue(new Order(cart, customerAlias, totalPrice));
+        System.out.printf("Order placed and added to the Order Queue. Total: ₱%.2f%n", totalPrice);
+    }
+
+    private static Size chooseSize(Scanner scanner, MenuItem item) {
+        if (item instanceof Pastry) return Size.STANDARD;
+        IO.print("Choose size (Small/Medium/Large): ");
+        try {
+            return Size.valueOf(scanner.nextLine().trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            IO.println("Invalid size; using Medium.");
+            return Size.MEDIUM;
+        }
     }
 
     private static void fulfillOrder(Inventory inventory, OrderQueue orderQueue) {
@@ -161,10 +197,12 @@ public class Main {
         }
 
         Order order = orderQueue.dequeue();
-        MenuItem item = inventory.getItemById(order.itemId());
-        String itemName = (item != null) ? item.getName() : "Unknown Item";
-        System.out.printf("Fulfilled order: %d x %s (ID: %d)%n",
-                order.quantity(), itemName, order.itemId());
+        System.out.printf("Fulfilled order for %s (Total: ₱%.2f):%n", order.customerAlias(), order.totalPrice());
+        for (CartItem cartItem : order.items()) {
+            MenuItem item = inventory.getItemById(cartItem.itemId());
+            String itemName = (item != null) ? item.getName() : "Unknown Item";
+            System.out.printf("%d x %s (%s)%n", cartItem.quantity(), itemName, cartItem.size());
+        }
     }
 
     private static int readInt(Scanner scanner) {

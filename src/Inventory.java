@@ -17,11 +17,13 @@ public class Inventory {
 
     // Default Menu Items
     private void seedDefaultItems() {
-        addItem(new MenuItem(101, "Espresso", 160.00));
-        addItem(new MenuItem(102, "Latte", 155.25));
-        addItem(new MenuItem(103, "Cappuccino", 155.00));
-        addItem(new MenuItem(104, "Americano", 165.00));
-        addItem(new MenuItem(105, "Mocha", 190.75));
+        addItem(new Drink(101, "Espresso", 140.00, 160.00, 180.00));
+        addItem(new Drink(102, "Latte", 135.25, 155.25, 175.25));
+        addItem(new Drink(103, "Cappuccino", 135.00, 155.00, 175.00));
+        addItem(new Drink(104, "Americano", 145.00, 165.00, 185.00));
+        addItem(new Drink(105, "Mocha", 170.75, 190.75, 210.75));
+        addItem(new Pastry(201, "Butter Croissant", 95.00));
+        addItem(new Pastry(202, "Blueberry Muffin", 85.00));
     }
 
     public int size(){
@@ -103,6 +105,30 @@ public class Inventory {
         item.setName(newName);
         item.setPrice(newPrice);
         return true;
+    }
+
+    public boolean editItem(int id, String newName, java.util.Map<Size, Double> newPrices) {
+        MenuItem item = getItemById(id);
+        if (item == null || newPrices.isEmpty()) {
+            return false;
+        }
+        item.setName(newName);
+        for (java.util.Map.Entry<Size, Double> entry : newPrices.entrySet()) {
+            item.setPrice(entry.getKey(), entry.getValue());
+        }
+        return true;
+    }
+
+    public double calculateCartTotal(java.util.List<CartItem> cartItems) {
+        double total = 0.0;
+        for (CartItem cartItem : cartItems) {
+            MenuItem item = getItemById(cartItem.itemId());
+            if (item == null || !item.supportsSize(cartItem.size())) {
+                throw new IllegalArgumentException("Item or size not found");
+            }
+            total += item.getPrice(cartItem.size()) * cartItem.quantity();
+        }
+        return total;
     }
 
     /**

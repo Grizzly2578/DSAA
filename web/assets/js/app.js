@@ -1,5 +1,7 @@
 // --- Global State ---
 let currentMenu = [];
+let shoppingCart = [];
+let selectedItem = null;
 let authToken = localStorage.getItem('token');
 let currentUserRole = localStorage.getItem('role');
 
@@ -181,11 +183,17 @@ function renderMenu(itemsToRender) {
         const card = document.createElement('div');
         card.className = 'card';
 
+        const sizeOptions = item.type === 'Drink'
+            ? ['SMALL', 'MEDIUM', 'LARGE']
+            : ['STANDARD'];
+        const sizeSelect = `<select id="size-${item.id}" class="size-select">${sizeOptions.map(size =>
+            `<option value="${size}">${size === 'STANDARD' ? 'Standard' : size.charAt(0) + size.slice(1).toLowerCase()} - ₱${item.prices[size].toFixed(2)}</option>`).join('')}</select>`;
+
         let managerActions = '';
         if (currentUserRole === 'MANAGER') {
             managerActions = `
             <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary btn-full" onclick="openManageModal(${item.id}, '${item.name}', ${item.price})" style="font-size: 0.8rem; padding: 0.25rem;">Edit</button>
+                <button class="btn btn-secondary btn-full" onclick="openManageModal(${item.id})" style="font-size: 0.8rem; padding: 0.25rem;">Edit</button>
                 <button class="btn btn-primary btn-full" onclick="deleteMenuItem(${item.id})" style="font-size: 0.8rem; padding: 0.25rem; background: var(--error-color);">Delete</button>
             </div>
             `;
@@ -197,15 +205,15 @@ function renderMenu(itemsToRender) {
                 <div class="card-id">ID: ${item.id}</div>
             </div>
             <div style="margin-top:1rem;">
-                <div class="card-price">₱${item.price.toFixed(2)}</div>
-                <button class="btn btn-primary btn-full" onclick="openOrderModal(${item.id}, '${item.name}', ${item.price})">
-                    Order Now
-                </button>
+                <div class="card-price">${item.type === 'Drink' ? 'From ' : ''}₱${item.prices[item.type === 'Drink' ? 'MEDIUM' : 'STANDARD'].toFixed(2)}</div>
+                ${sizeSelect}
+                <button class="btn btn-primary btn-full" onclick="addToCart(${item.id})">Add to Cart</button>
                 ${managerActions}
             </div>
         `;
         grid.appendChild(card);
     });
+    renderCart();
 }
 
 async function loadMenu() {
@@ -259,17 +267,18 @@ async function loadOrders() {
         }
 
         orders.forEach((order, index) => {
-            // Try to find the item name from our cached menu
-            const menuItem = currentMenu.find(item => item.id === order.itemId);
-            const itemName = menuItem ? menuItem.name : 'Unknown Item';
+            const summary = order.items.map(item => {
+                const menuItem = currentMenu.find(menu => menu.id === item.itemId);
+                return `${item.quantity} x ${menuItem ? menuItem.name : 'Unknown Item'} (${item.size})`;
+            }).join('<br>');
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>#${index + 1}</td>
-                <td>${order.itemId}</td>
-                <td>${itemName}</td>
+                <td>${order.items.map(item => item.itemId).join(', ')}</td>
+                <td>${summary}</td>
                 <td>${order.customerAlias || 'Guest'}</td>
-                <td>${order.quantity}</td>
+                <td>₱${Number(order.totalPrice || calculateCartTotal(order.items)).toFixed(2)}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -280,35 +289,70 @@ async function loadOrders() {
     }
 }
 
-async function submitOrder(event) {
+function addToCart(id) {
+    const item = currentMenu.find(menuItem => menuItem.id === id);
+    if (!item) return;
+    const size = document.getElementById(`size-${id}`).value;
+    selectedItem = { id, name: item.name, price: item.prices[size] };
+    openOrderModal(id, item.name, item.prices[size], size);
+}
+
+function submitOrder(event) {
     event.preventDefault(); // Prevent page reload
 
     const itemId = document.getElementById('order-item-id').value;
+    const size = document.getElementById('order-size').value;
     const quantity = document.getElementById('order-quantity').value;
-    const customerAlias = document.getElementById('customer-alias').value;
+    const existing = shoppingCart.find(item => item.itemId === parseInt(itemId) && item.size === size);
+    if (existing) existing.quantity += parseInt(quantity);
+    else shoppingCart.push({ itemId: parseInt(itemId), size, quantity: parseInt(quantity) });
+    closeModal('order-modal');
+    renderCart();
+    showToast('Item added to cart', 'success');
+}
 
-    const orderData = {
-        itemId: parseInt(itemId),
-        quantity: parseInt(quantity),
-        customerAlias: customerAlias
-    };
+function renderCart() {
+    const cart = document.getElementById('cart-items');
+    const count = document.getElementById('cart-count');
+    if (!cart || !count) return;
+    count.textContent = shoppingCart.reduce((total, item) => total + item.quantity, 0);
+    const totalDisplay = document.getElementById('cart-total');
+    if (totalDisplay) totalDisplay.textContent = `₱${getCartTotal().toFixed(2)}`;
+    cart.innerHTML = shoppingCart.length ? shoppingCart.map((item, index) => {
+        const menuItem = currentMenu.find(menu => menu.id === item.itemId);
+        return `<div class="cart-row"><span>${item.quantity} x ${menuItem ? menuItem.name : 'Item'} (${item.size})</span><button class="btn btn-secondary" onclick="removeFromCart(${index})">Remove</button></div>`;
+    }).join('') : '<p>Your cart is empty.</p>';
+}
 
+function getCartTotal() {
+    return calculateCartTotal(shoppingCart);
+}
+
+function calculateCartTotal(items) {
+    return items.reduce((total, item) => {
+        const menuItem = currentMenu.find(menu => menu.id === item.itemId);
+        const unitPrice = menuItem && menuItem.prices[item.size] ? menuItem.prices[item.size] : 0;
+        return total + unitPrice * item.quantity;
+    }, 0);
+}
+
+function removeFromCart(index) {
+    shoppingCart.splice(index, 1);
+    renderCart();
+}
+
+async function checkoutCart() {
+    if (!shoppingCart.length) return showToast('Add an item to the cart first.', 'error');
+    const customerAlias = document.getElementById('cart-alias').value.trim() || 'Guest';
     try {
-        const response = await fetchAuth('/api/orders', {
-            method: 'POST',
-            body: JSON.stringify(orderData)
-        });
-
-        if (response.ok) {
-            showToast('Order placed successfully!', 'success');
-            closeModal('order-modal');
-        } else {
-            const err = await response.json();
-            showToast(err.error || 'Failed to place order.', 'error');
-        }
+        const response = await fetchAuth('/api/orders', { method: 'POST', body: JSON.stringify({ items: shoppingCart, customerAlias }) });
+        if (!response.ok) throw new Error((await response.json()).error || 'Failed to place order');
+        shoppingCart = [];
+        document.getElementById('cart-alias').value = '';
+        renderCart();
+        showToast('Order placed successfully!', 'success');
     } catch (error) {
-        console.error('Error placing order:', error);
-        showToast('Network error. Failed to place order.', 'error');
+        showToast(error.message || 'Network error. Failed to place order.', 'error');
     }
 }
 
@@ -320,7 +364,7 @@ async function fulfillNextOrder() {
 
         if (response.ok) {
             const data = await response.json();
-            showToast('Fulfilled order for Item ID: ' + data.itemId, 'success');
+            showToast(`Fulfilled order totaling ₱${Number(data.totalPrice || 0).toFixed(2)}`, 'success');
             loadOrders(); // Instantly refresh the queue
         } else {
             const err = await response.json();
@@ -355,14 +399,21 @@ async function submitManagedItem(e) {
     const mode = document.getElementById('manage-mode').value;
     const id = document.getElementById('manage-id').value;
     const name = document.getElementById('manage-name').value;
-    const price = document.getElementById('manage-price').value;
+    const type = document.getElementById('manage-type').value;
+    const prices = type === 'Pastry'
+        ? { price: parseFloat(document.getElementById('manage-standard-price').value) }
+        : {
+            smallPrice: parseFloat(document.getElementById('manage-small-price').value),
+            mediumPrice: parseFloat(document.getElementById('manage-medium-price').value),
+            largePrice: parseFloat(document.getElementById('manage-large-price').value)
+        };
 
     const method = mode === 'add' ? 'POST' : 'PUT';
 
     try {
         const res = await fetchAuth('/api/menu', {
             method: method,
-            body: JSON.stringify({id: parseInt(id), name: name, price: parseFloat(price)})
+            body: JSON.stringify({id: parseInt(id), name: name, type, ...prices})
         });
         if(res.ok) {
             showToast(mode === 'add' ? 'Item Added' : 'Item Updated', 'success');
@@ -379,17 +430,19 @@ async function submitManagedItem(e) {
 
 // --- Modal Handling ---
 
-function openOrderModal(id, name, price) {
+function openOrderModal(id, name, price, size = 'STANDARD') {
     document.getElementById('order-item-id').value = id;
     document.getElementById('modal-item-name').textContent = name;
     document.getElementById('modal-item-price').textContent = `₱${price.toFixed(2)}`;
+    document.getElementById('order-size').innerHTML = size === 'STANDARD'
+        ? '<option value="STANDARD">Standard</option>'
+        : ['SMALL', 'MEDIUM', 'LARGE'].map(option => `<option value="${option}" ${option === size ? 'selected' : ''}>${option.charAt(0) + option.slice(1).toLowerCase()}</option>`).join('');
     document.getElementById('order-quantity').value = 1;
-    document.getElementById('customer-alias').value = '';
 
     document.getElementById('order-modal').classList.remove('hidden');
 }
 
-function openManageModal(id = '', name = '', price = '') {
+function openManageModal(id = '') {
     const isEdit = id !== '';
     document.getElementById('manage-title').textContent = isEdit ? 'Edit Menu Item' : 'Add New Item';
     document.getElementById('manage-mode').value = isEdit ? 'edit' : 'add';
@@ -398,8 +451,13 @@ function openManageModal(id = '', name = '', price = '') {
     idField.value = id;
     idField.readOnly = isEdit; // Can't change ID on edit in this data structure
 
-    document.getElementById('manage-name').value = name;
-    document.getElementById('manage-price').value = price;
+    const item = currentMenu.find(menuItem => menuItem.id === id);
+    document.getElementById('manage-name').value = item ? item.name : '';
+    document.getElementById('manage-type').value = item ? item.type : 'Drink';
+    document.getElementById('manage-small-price').value = item?.prices.SMALL || '';
+    document.getElementById('manage-medium-price').value = item?.prices.MEDIUM || '';
+    document.getElementById('manage-large-price').value = item?.prices.LARGE || '';
+    document.getElementById('manage-standard-price').value = item?.prices.STANDARD || '';
 
     document.getElementById('manage-modal').classList.remove('hidden');
 }

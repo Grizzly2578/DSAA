@@ -13,10 +13,13 @@ This project was built from scratch with **zero external dependencies** (no Spri
 ## ✨ Key Features
 
 ### 🧠 Data Structures & Algorithms
+*   **Typed menu items:** `Drink` supports Small, Medium, and Large prices; `Pastry` uses a Standard price and currently contains placeholder catalog data.
+*   **Size pricing (`MenuItem.java`):** Each item stores prices in a `HashMap<Size, Double>`.
 *   **Ordered Array (`Inventory.java`):** Menu items are stored in a dynamically resizing array that is strictly maintained in ascending order by Item ID.
 *   **Binary Search:** Locating menu items via ID operates in $O(\log n)$ time, ensuring lightning-fast lookups even with massive menus.
 *   **Merge Sort:** A divide-and-conquer algorithm operating in $O(n \log n)$ time used to dynamically sort the menu by price (Ascending/Descending) on the fly, without breaking the original ID-based order.
-*   **FIFO Queue (`OrderQueue.java`):** Orders are processed strictly First-In-First-Out using a thread-safe `ArrayDeque`.
+*   **Shopping cart and FIFO queue:** A cart can contain multiple `CartItem` entries and is processed as one order through the thread-safe `ArrayDeque`.
+*   **Order totals:** Cart totals are calculated from size-specific prices before submission and preserved with each queued order. The CLI and web dashboard display active-cart and submitted-order totals.
 *   **Thread Safety:** Critical data structures are synchronized to handle concurrent requests from the multithreaded web server and the main CLI thread without race conditions.
 
 ### 💻 Dual Interface Design
@@ -49,7 +52,7 @@ This project intentionally isolates Abstract Data Types (ADTs) and relies on spe
 | **Data Structure** | **Dynamic Array (`ArrayList`)** | `Inventory.java` | The underlying storage for the Ordered List ADT. Provides memory-contiguous $O(1)$ random access, which is mathematically required to achieve $O(\log n)$ efficiency during Binary Search. |
 | **Data Structure** | **`ArrayDeque`** | `OrderQueue.java` | The underlying storage for the Queue ADT. Provides amortized $O(1)$ enqueue and dequeue operations at both ends. Chosen over `LinkedList` for superior memory efficiency and CPU cache locality (no node allocation overhead). |
 | **Data Structure** | **`ConcurrentHashMap`** | `HTTPServer.java` | Stores active authentication sessions mapping UUID Tokens to User Roles. Provides thread-safe, lock-stripped $O(1)$ lookups and insertions, safely handling simultaneous requests from the multithreaded HTTP worker pool. |
-| **Data Structure** | **`Record`** | `Order.java` | An immutable data carrier structure. Used to safely construct and pass order details (Item ID, Quantity, Customer Alias) between the HTTP worker threads, the CLI main thread, and the core Queue without risk of external mutation. |
+| **Data Structure** | **`Record`** | `Order.java`, `CartItem.java` | Immutable data carriers for multi-item orders, sizes, quantities, customer aliases, and submitted total prices. |
 
 ---
 
@@ -58,7 +61,7 @@ This project intentionally isolates Abstract Data Types (ADTs) and relies on spe
 | Algorithm | Time Complexity | File | Purpose & Usage |
 | :--- | :--- | :--- | :--- |
 | **Binary Search** | $O(\log n)$ | `Inventory.java` | Rapidly locates menu items by ID. Used by the API (`?id=X`) and CLI for searching, updating, and removing items. Requires the underlying array to be pre-sorted. |
-| **Merge Sort** | $O(n \log n)$ | `Inventory.java` | Dynamically creates a price-sorted copy of the menu. Uses a divide-and-conquer approach. Triggered by the Web UI dropdown (`?sortBy=price`) and CLI option 9. |
+| **Merge Sort** | $O(n \log n)$ | `Inventory.java` | Dynamically creates a price-sorted copy of the menu. Uses a divide-and-conquer approach and is triggered by the Web UI sort dropdown (`?sortBy=price`). |
 | **Ordered Insertion** | Amortized $O(n)$ | `Inventory.java` | Maintains the strictly ascending ID order of the Inventory array during new item additions, serving as the mathematically necessary precondition for Binary Search. |
 
 ---
@@ -76,8 +79,12 @@ DSAA/
 │   ├── HTTPServer.java       # Custom multi-threaded web server & REST API
 │   ├── Inventory.java        # Ordered Array implementation w/ Binary Search & Merge Sort
 │   ├── Main.java             # Entry point & CLI loop
-│   ├── MenuItem.java         # Data model
-│   ├── Order.java            # Data model (Record)
+│   ├── MenuItem.java         # Size-price map base model
+│   ├── Drink.java            # Small/Medium/Large menu item
+│   ├── Pastry.java           # Standard-size menu item
+│   ├── Size.java             # Supported item sizes
+│   ├── CartItem.java         # One shopping-cart line
+│   ├── Order.java            # Multi-item order record
 │   └── OrderQueue.java       # Thread-safe FIFO Queue implementation
 └── web/
     ├── index.html            # SPA Entry point & Layout
@@ -127,12 +134,12 @@ The `HTTPServer.java` exposes the following endpoints:
 | `/api/menu` | `GET` | *None* | Returns the full menu array. | N/A |
 | `/api/menu?id=X`| `GET` | *None* | Performs a Binary Search and returns a specific item. | N/A |
 | `/api/menu?sortBy=price`| `GET` | *None* | Performs a Merge Sort to return the menu ordered by price. Use `&desc=true` for High-to-Low. | N/A |
-| `/api/menu` | `POST` | Manager | Adds a new MenuItem to the Inventory. | `{"id":106, "name":"Tea", "price":2.50}` |
-| `/api/menu` | `PUT` | Manager | Edits an existing MenuItem. | `{"id":106, "name":"Green Tea", "price":2.75}` |
+| `/api/menu` | `POST` | Manager | Adds a Drink or Pastry with size-specific prices. | `{"id":106,"name":"Tea","type":"Drink","smallPrice":120,"mediumPrice":140,"largePrice":160}` |
+| `/api/menu` | `PUT` | Manager | Edits an existing item and its size-specific prices. | `{"id":106,"name":"Green Tea","type":"Drink","smallPrice":125,"mediumPrice":145,"largePrice":165}` |
 | `/api/menu?id=X`| `DELETE` | Manager | Removes item ID 'X' from Inventory. | N/A |
-| `/api/orders` | `GET` | Barista/Manager | Returns the current pending OrderQueue. | N/A |
-| `/api/orders` | `POST` | Barista/Manager | Enqueues a new Order. | `{"itemId":101, "quantity":2, "customerAlias":"John"}` |
-| `/api/orders` | `DELETE`| Barista/Manager | Dequeues (fulfills) the next Order. | N/A |
+| `/api/orders` | `GET` | Barista/Manager | Returns pending multi-item orders, including each submitted `totalPrice`. | N/A |
+| `/api/orders` | `POST` | Barista/Manager | Enqueues a multi-item shopping cart. | `{"items":[{"itemId":101,"size":"SMALL","quantity":2}],"customerAlias":"John"}` |
+| `/api/orders` | `DELETE`| Barista/Manager | Dequeues (fulfills) the next Order and returns its total price. | N/A |
 
 *Note: All endpoints support `OPTIONS` requests for CORS preflight.*
 
