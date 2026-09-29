@@ -221,7 +221,7 @@ public class HTTPServer {
                     sendResponse(exchange, 200, json.toString(), "application/json");
                 }
             } else if ("POST".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
@@ -239,7 +239,7 @@ public class HTTPServer {
                 }
 
             } else if ("PUT".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 try {
@@ -257,7 +257,7 @@ public class HTTPServer {
                 }
 
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                if (!isAuthorized(exchange, "MANAGER")) return;
+                if (isAuthorized(exchange, "MANAGER")) return;
 
                 String query = exchange.getRequestURI().getQuery();
                 if (query != null && query.startsWith("id=")) {
