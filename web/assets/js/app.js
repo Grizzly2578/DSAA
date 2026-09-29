@@ -267,16 +267,23 @@ async function loadOrders() {
         }
 
         orders.forEach((order, index) => {
-            const summary = order.items.map(item => {
+            const itemDetails = order.items.map(item => {
                 const menuItem = currentMenu.find(menu => menu.id === item.itemId);
-                return `${item.quantity} x ${menuItem ? menuItem.name : 'Unknown Item'} (${item.size})`;
-            }).join('<br>');
+                return {
+                    id: item.itemId,
+                    name: menuItem ? menuItem.name : 'Unknown Item',
+                    quantity: item.quantity,
+                    size: item.size
+                };
+            });
+            const itemIds = itemDetails.map(item => `${item.id} - ${item.name}`).join('<br>');
+            const itemNames = itemDetails.map(item => `${item.quantity} x ${item.name} (${item.size})`).join('<br>');
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>#${index + 1}</td>
-                <td>${order.items.map(item => item.itemId).join(', ')}</td>
-                <td>${summary}</td>
+                <td>${itemIds}</td>
+                <td>${itemNames}</td>
                 <td>${order.customerAlias || 'Guest'}</td>
                 <td>₱${Number(order.totalPrice || calculateCartTotal(order.items)).toFixed(2)}</td>
             `;

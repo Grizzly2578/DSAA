@@ -178,8 +178,8 @@ padding: 0.5rem;
 margin-bottom: 0.75rem;
 border: 1px solid var(--border-color);
 border-radius: 4px;
-background: var(--card-bg);
-color: var(--text-color);
+background-color: var(--surface-color);
+color: var(--text-main);
 }
 
 .cart-panel {
@@ -199,6 +199,21 @@ border-bottom: 1px solid var(--border-color);
 margin-top: 1rem;
 padding: 0.65rem;
 width: min(100%, 320px);
+border: 1px solid var(--border-color);
+border-radius: 4px;
+background-color: var(--surface-color);
+color: var(--text-main);
+}
+
+select,
+input {
+background-color: var(--surface-color);
+color: var(--text-main);
+}
+
+select option {
+background-color: var(--surface-color);
+color: var(--text-main);
 }
 
 /* Tables */
