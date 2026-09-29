@@ -196,7 +196,8 @@ public class Main {
             return;
         }
 
-        Order order = orderQueue.dequeue();
+        CompletedSale sale = orderQueue.fulfillNext("CLI");
+        Order order = sale.order();
         System.out.printf("Fulfilled order for %s (Total: ₱%.2f):%n", order.customerAlias(), order.totalPrice());
         for (CartItem cartItem : order.items()) {
             MenuItem item = inventory.getItemById(cartItem.itemId());

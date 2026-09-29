@@ -15,6 +15,7 @@
         <ul id="main-nav" class="hidden">
             <li><a href="#" onclick="showSection('menu-section')" class="active" id="nav-menu">Menu</a></li>
             <li><a href="#" onclick="showSection('orders-section')" id="nav-orders">Order Queue</a></li>
+            <li class="manager-only"><a href="#" onclick="showSection('summary-section')" id="nav-summary">Summary</a></li>
             <li><button id="theme-toggle" class="btn btn-secondary theme-btn">🌙</button></li>
             <li><button onclick="logout()" class="btn btn-secondary" style="margin-left: 10px;">Logout</button></li>
         </ul>
@@ -114,6 +115,39 @@
                 <tr>
                     <td colspan="5" class="text-center loading">Loading queue...</td>
                 </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Summary Section -->
+    <section id="summary-section" class="hidden-section">
+        <div class="section-header">
+            <h2>Business Summary</h2>
+            <button onclick="loadSummary()" class="btn btn-secondary">Refresh Summary</button>
+        </div>
+
+        <div class="summary-metrics">
+            <div class="metric-card"><span>Menu Items</span><strong id="summary-menu-items">0</strong></div>
+            <div class="metric-card"><span>Pending Orders</span><strong id="summary-pending-orders">0</strong></div>
+            <div class="metric-card"><span>Completed Sales</span><strong id="summary-completed-sales">0</strong></div>
+            <div class="metric-card"><span>Items Sold</span><strong id="summary-items-sold">0</strong></div>
+            <div class="metric-card"><span>Total Revenue</span><strong id="summary-total-revenue">₱0.00</strong></div>
+        </div>
+
+        <div class="summary-sales-container">
+            <table class="data-table summary-sales-table">
+                <thead>
+                <tr>
+                    <th>Completed At</th>
+                    <th>Completed By</th>
+                    <th>Customer Alias</th>
+                    <th>Items</th>
+                    <th>Total Price</th>
+                </tr>
+                </thead>
+                <tbody id="sales-history-body">
+                <tr><td colspan="5" class="text-center loading">Loading sales history...</td></tr>
                 </tbody>
             </table>
         </div>

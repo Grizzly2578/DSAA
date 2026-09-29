@@ -20,6 +20,7 @@ This project was built from scratch with **zero external dependencies** (no Spri
 *   **Merge Sort:** A divide-and-conquer algorithm operating in $O(n \log n)$ time used to dynamically sort the menu by price (Ascending/Descending) on the fly, without breaking the original ID-based order.
 *   **Shopping cart and FIFO queue:** A cart can contain multiple `CartItem` entries and is processed as one order through the thread-safe `ArrayDeque`.
 *   **Order totals:** Cart totals are calculated from size-specific prices before submission and preserved with each queued order. The CLI and web dashboard display active-cart and submitted-order totals.
+*   **Business summary:** The Summary dashboard reports menu size, pending orders, completed sales, items sold, revenue, and a timestamped sales history with the completing user.
 *   **Thread Safety:** Critical data structures are synchronized to handle concurrent requests from the multithreaded web server and the main CLI thread without race conditions.
 
 ### 💻 Dual Interface Design
@@ -85,6 +86,7 @@ DSAA/
 │   ├── Size.java             # Supported item sizes
 │   ├── CartItem.java         # One shopping-cart line
 │   ├── Order.java            # Multi-item order record
+│   ├── CompletedSale.java    # Fulfilled order history record
 │   └── OrderQueue.java       # Thread-safe FIFO Queue implementation
 └── web/
     ├── index.html            # SPA Entry point & Layout
@@ -148,6 +150,7 @@ The `HTTPServer.java` exposes the following endpoints:
 | `/api/orders` | `GET` | Barista/Manager | Returns pending multi-item orders, including each submitted `totalPrice`. | N/A |
 | `/api/orders` | `POST` | Barista/Manager | Enqueues a multi-item shopping cart. | `{"items":[{"itemId":101,"size":"SMALL","quantity":2}],"customerAlias":"John"}` |
 | `/api/orders` | `DELETE`| Barista/Manager | Dequeues (fulfills) the next Order and returns its total price. | N/A |
+| `/api/summary` | `GET` | Barista/Manager | Returns business metrics and completed sales history. | N/A |
 
 *Note: All endpoints support `OPTIONS` requests for CORS preflight.*
 

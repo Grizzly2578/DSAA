@@ -113,6 +113,11 @@ function applyRBAC() {
 }
 
 function showSection(sectionId) {
+    if (sectionId === 'summary-section' && currentUserRole !== 'MANAGER') {
+        showToast('Summary is available to managers only.', 'error');
+        sectionId = 'menu-section';
+    }
+
     // Hide all sections
     document.getElementById('login-section').classList.add('hidden-section');
     document.getElementById('login-section').classList.remove('active-section');
@@ -120,11 +125,14 @@ function showSection(sectionId) {
     document.getElementById('menu-section').classList.remove('active-section');
     document.getElementById('orders-section').classList.add('hidden-section');
     document.getElementById('orders-section').classList.remove('active-section');
+    document.getElementById('summary-section').classList.add('hidden-section');
+    document.getElementById('summary-section').classList.remove('active-section');
 
     // Reset nav links (only if showing app sections)
     if(sectionId !== 'login-section') {
         document.getElementById('nav-menu').classList.remove('active');
         document.getElementById('nav-orders').classList.remove('active');
+        document.getElementById('nav-summary').classList.remove('active');
     }
 
     // Show target section
@@ -138,6 +146,9 @@ function showSection(sectionId) {
     } else if (sectionId === 'orders-section') {
         document.getElementById('nav-orders').classList.add('active');
         loadOrders();
+    } else if (sectionId === 'summary-section') {
+        document.getElementById('nav-summary').classList.add('active');
+        loadSummary();
     }
 }
 
@@ -535,4 +546,55 @@ function showToast(message, type = 'success') {
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 3000);
+}
+
+async function loadSummary() {
+    if (!authToken) return;
+
+    try {
+        const response = await fetchAuth('/api/summary');
+        if (!response.ok) throw new Error('Failed to fetch summary');
+
+        const summary = await response.json();
+        const metrics = summary.metrics;
+        document.getElementById('summary-menu-items').textContent = metrics.menuItems;
+        document.getElementById('summary-pending-orders').textContent = metrics.pendingOrders;
+        document.getElementById('summary-completed-sales').textContent = metrics.completedSales;
+        document.getElementById('summary-items-sold').textContent = metrics.itemsSold;
+        document.getElementById('summary-total-revenue').textContent = `₱${Number(metrics.totalRevenue).toFixed(2)}`;
+
+        const tbody = document.getElementById('sales-history-body');
+        if (!summary.sales.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No completed sales yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = summary.sales.map(sale => {
+            const items = sale.items.map(item => {
+                const menuItem = currentMenu.find(menu => menu.id === item.itemId);
+                const itemName = escapeHtml(menuItem ? menuItem.name : 'Unknown Item');
+                return `${item.itemId} - ${itemName} (${item.quantity} x ${item.size})`;
+            }).join('<br>');
+            return `<tr>
+                <td>${new Date(sale.completedAt).toLocaleString()}</td>
+                <td>${escapeHtml(sale.completedBy)}</td>
+                <td>${escapeHtml(sale.customerAlias || 'Guest')}</td>
+                <td>${items}</td>
+                <td>₱${Number(sale.totalPrice).toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading summary:', error);
+        document.getElementById('sales-history-body').innerHTML =
+            '<tr><td colspan="5" class="text-center" style="color: var(--error-color);">Error loading summary.</td></tr>';
+    }
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }

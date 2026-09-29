@@ -1,4 +1,6 @@
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 
 /**
@@ -8,6 +10,7 @@ public class OrderQueue {
 
     // ArrayDeque is generally more memory-efficient than LinkedList for queues
     private final Queue<Order> queue = new ArrayDeque<>();
+    private final List<CompletedSale> completedSales = new ArrayList<>();
 
     public synchronized void enqueue(Order order) {
         queue.add(order);
@@ -27,6 +30,31 @@ public class OrderQueue {
 
     public synchronized int size() {
         return queue.size();
+    }
+
+    public synchronized CompletedSale fulfillNext(String completedBy) {
+        Order order = queue.poll();
+        if (order == null) return null;
+        CompletedSale sale = new CompletedSale(order, java.time.Instant.now(), completedBy);
+        completedSales.add(sale);
+        return sale;
+    }
+
+    public synchronized List<CompletedSale> getCompletedSalesSnapshot() {
+        return new ArrayList<>(completedSales);
+    }
+
+    public synchronized double getTotalRevenue() {
+        return completedSales.stream()
+                .mapToDouble(sale -> sale.order().totalPrice())
+                .sum();
+    }
+
+    public synchronized int getCompletedItemCount() {
+        return completedSales.stream()
+                .flatMap(sale -> sale.order().items().stream())
+                .mapToInt(CartItem::quantity)
+                .sum();
     }
 
     /**

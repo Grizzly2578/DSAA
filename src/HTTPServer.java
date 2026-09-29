@@ -37,7 +37,7 @@ public class HTTPServer {
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private final Map<String, LoginAttempt> loginAttempts = new ConcurrentHashMap<>();
 
-    private record Session(String role, long expiresAt) {
+    private record Session(String username, String role, long expiresAt) {
     }
 
     private static final class LoginAttempt {
@@ -61,6 +61,7 @@ public class HTTPServer {
         server.createContext("/api/logout", new LogoutApiHandler());
         server.createContext("/api/menu", new MenuApiHandler());
         server.createContext("/api/orders", new OrdersApiHandler());
+        server.createContext("/api/summary", new SummaryApiHandler());
 
         // Multithreaded executor for handling concurrent requests
         server.setExecutor(Executors.newFixedThreadPool(10));
@@ -72,7 +73,7 @@ public class HTTPServer {
     // AUTH HANDLER
     // ==========================================
 
-    private String getRole(HttpExchange exchange) {
+    private Session getSession(HttpExchange exchange) {
         String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
@@ -82,9 +83,14 @@ public class HTTPServer {
                 sessions.remove(token, session);
                 return null;
             }
-            return session.role();
+            return session;
         }
         return null;
+    }
+
+    private String getRole(HttpExchange exchange) {
+        Session session = getSession(exchange);
+        return session == null ? null : session.role();
     }
 
     private boolean isAuthorized(HttpExchange exchange, String... allowedRoles) throws IOException {
@@ -122,7 +128,8 @@ public class HTTPServer {
                     if (role != null) {
                         loginAttempts.remove(client);
                         String token = UUID.randomUUID().toString();
-                        sessions.put(token, new Session(role, System.currentTimeMillis() + SESSION_TTL_MILLIS));
+                        String username = extractString(body, "username");
+                        sessions.put(token, new Session(username, role, System.currentTimeMillis() + SESSION_TTL_MILLIS));
                         sendResponse(exchange, 200, "{\"token\":\"" + token + "\", \"role\":\"" + role + "\"}", "application/json");
                     } else {
                         sendResponse(exchange, 401, "{\"error\":\"Invalid credentials\"}", "application/json");
@@ -401,18 +408,47 @@ public class HTTPServer {
             } else if ("DELETE".equalsIgnoreCase(method)) {
                 if (isAuthorized(exchange, "MANAGER", "BARISTA")) return;
 
-                if (orderQueue.isEmpty()) {
+                Session session = getSession(exchange);
+                CompletedSale sale = orderQueue.fulfillNext(session.username());
+                if (sale == null) {
                     sendResponse(exchange, 400, "{\"error\":\"No pending orders to fulfill\"}", "application/json");
                 } else {
-                    Order fulfilled = orderQueue.dequeue();
-                        sendResponse(exchange, 200, String.format("{\"status\":\"Order fulfilled\", \"items\": %s, \"totalPrice\": %.2f}",
-                            orderItemsToJson(fulfilled), fulfilled.totalPrice()), "application/json");
+                    sendResponse(exchange, 200, "{\"status\":\"Order fulfilled\",\"sale\":"
+                            + saleToJson(sale) + "}", "application/json");
                 }
             } else {
                 sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
             }
         }
     }
+
+    private class SummaryApiHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
+                return;
+            }
+            if (isAuthorized(exchange, "MANAGER")) return;
+
+            List<CompletedSale> sales = orderQueue.getCompletedSalesSnapshot();
+            StringBuilder json = new StringBuilder(String.format(
+                    "{\"metrics\":{\"menuItems\":%d,\"pendingOrders\":%d,\"completedSales\":%d,\"itemsSold\":%d,\"totalRevenue\":%.2f},\"sales\":[",
+                    inventory.size(), orderQueue.size(), sales.size(), orderQueue.getCompletedItemCount(), orderQueue.getTotalRevenue()));
+            for (int i = 0; i < sales.size(); i++) {
+                json.append(saleToJson(sales.get(i)));
+                if (i < sales.size() - 1) json.append(",");
+            }
+            json.append("]}");
+            sendResponse(exchange, 200, json.toString(), "application/json");
+        }
+    }
+
     // ==========================================
     // UTILITY METHODS
     // ==========================================
@@ -485,6 +521,13 @@ public class HTTPServer {
             if (i < order.items().size() - 1) json.append(",");
         }
         return json.append("]").toString();
+    }
+
+    private static String saleToJson(CompletedSale sale) {
+        Order order = sale.order();
+        return String.format("{\"completedAt\":\"%s\",\"completedBy\":\"%s\",\"customerAlias\":\"%s\",\"totalPrice\":%.2f,\"items\":%s}",
+                sale.completedAt(), escapeJson(sale.completedBy()), escapeJson(order.customerAlias()),
+                order.totalPrice(), orderItemsToJson(order));
     }
 
     private static List<CartItem> parseCartItems(String body) {
