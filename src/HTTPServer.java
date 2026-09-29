@@ -111,7 +111,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
+                exchange.sendResponseHeaders(204, 0);
                 return;
             }
 
@@ -164,7 +164,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
+                exchange.sendResponseHeaders(204, 0);
                 return;
             }
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -252,7 +252,7 @@ public class HTTPServer {
             String method = exchange.getRequestMethod();
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
-                exchange.sendResponseHeaders(204, -1);
+                exchange.sendResponseHeaders(204, 0);
                 return;
             }
 
@@ -366,7 +366,7 @@ public class HTTPServer {
             String method = exchange.getRequestMethod();
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
-                exchange.sendResponseHeaders(204, -1);
+                exchange.sendResponseHeaders(204, 0);
                 return;
             }
 
@@ -427,7 +427,7 @@ public class HTTPServer {
         public void handle(HttpExchange exchange) throws IOException {
             addCorsHeaders(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
+                exchange.sendResponseHeaders(204, 0);
                 return;
             }
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
