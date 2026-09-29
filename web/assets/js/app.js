@@ -197,7 +197,7 @@ function renderMenu(itemsToRender) {
                 <div class="card-id">ID: ${item.id}</div>
             </div>
             <div style="margin-top:1rem;">
-                <div class="card-price">$${item.price.toFixed(2)}</div>
+                <div class="card-price">₱${item.price.toFixed(2)}</div>
                 <button class="btn btn-primary btn-full" onclick="openOrderModal(${item.id}, '${item.name}', ${item.price})">
                     Order Now
                 </button>
@@ -382,7 +382,7 @@ async function submitManagedItem(e) {
 function openOrderModal(id, name, price) {
     document.getElementById('order-item-id').value = id;
     document.getElementById('modal-item-name').textContent = name;
-    document.getElementById('modal-item-price').textContent = `$${price.toFixed(2)}`;
+    document.getElementById('modal-item-price').textContent = `₱${price.toFixed(2)}`;
     document.getElementById('order-quantity').value = 1;
     document.getElementById('customer-alias').value = '';
 

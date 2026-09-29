@@ -17,11 +17,11 @@ public class Inventory {
 
     // Default Menu Items
     private void seedDefaultItems() {
-        addItem(new MenuItem(101, "Espresso", 3.50));
-        addItem(new MenuItem(102, "Latte", 4.25));
-        addItem(new MenuItem(103, "Cappuccino", 4.00));
-        addItem(new MenuItem(104, "Americano", 3.00));
-        addItem(new MenuItem(105, "Mocha", 4.75));
+        addItem(new MenuItem(101, "Espresso", 160.00));
+        addItem(new MenuItem(102, "Latte", 155.25));
+        addItem(new MenuItem(103, "Cappuccino", 155.00));
+        addItem(new MenuItem(104, "Americano", 165.00));
+        addItem(new MenuItem(105, "Mocha", 190.75));
     }
 
     public int size(){
