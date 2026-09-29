@@ -35,6 +35,15 @@ async function fetchAuth(url, options = {}) {
     return response;
 }
 
+function requireAuthentication() {
+    const validRole = currentUserRole === 'MANAGER' || currentUserRole === 'BARISTA';
+    if (authToken && validRole) return true;
+
+    logout();
+    showToast('Please log in before placing an order.', 'error');
+    return false;
+}
+
 // --- Navigation & Auth ---
 async function handleLogin(e) {
     e.preventDefault();
@@ -64,8 +73,15 @@ async function handleLogin(e) {
 }
 
 function logout() {
+    if (authToken) {
+        fetch('/api/logout', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + authToken }
+        }).catch(() => {});
+    }
     authToken = null;
     currentUserRole = null;
+    shoppingCart = [];
     localStorage.removeItem('token');
     localStorage.removeItem('role');
 
@@ -74,6 +90,7 @@ function logout() {
 
     document.getElementById('main-header').classList.add('hidden-section');
     document.getElementById('main-nav').classList.add('hidden');
+    renderCart();
     showSection('login-section');
 }
 
@@ -297,22 +314,29 @@ async function loadOrders() {
 }
 
 function addToCart(id) {
+    if (!requireAuthentication()) return;
+
     const item = currentMenu.find(menuItem => menuItem.id === id);
     if (!item) return;
     const size = document.getElementById(`size-${id}`).value;
-    selectedItem = { id, name: item.name, price: item.prices[size] };
+    selectedItem = item;
     openOrderModal(id, item.name, item.prices[size], size);
 }
 
 function submitOrder(event) {
     event.preventDefault(); // Prevent page reload
+    if (!requireAuthentication()) return;
 
     const itemId = document.getElementById('order-item-id').value;
     const size = document.getElementById('order-size').value;
-    const quantity = document.getElementById('order-quantity').value;
+    const quantity = parseInt(document.getElementById('order-quantity').value, 10);
+    if (!selectedItem || selectedItem.prices[size] === undefined || !Number.isInteger(quantity) || quantity < 1) {
+        showToast('Choose a valid size and quantity.', 'error');
+        return;
+    }
     const existing = shoppingCart.find(item => item.itemId === parseInt(itemId) && item.size === size);
-    if (existing) existing.quantity += parseInt(quantity);
-    else shoppingCart.push({ itemId: parseInt(itemId), size, quantity: parseInt(quantity) });
+    if (existing) existing.quantity += quantity;
+    else shoppingCart.push({ itemId: parseInt(itemId, 10), size, quantity });
     closeModal('order-modal');
     renderCart();
     showToast('Item added to cart', 'success');
@@ -349,6 +373,7 @@ function removeFromCart(index) {
 }
 
 async function checkoutCart() {
+    if (!requireAuthentication()) return;
     if (!shoppingCart.length) return showToast('Add an item to the cart first.', 'error');
     const customerAlias = document.getElementById('cart-alias').value.trim() || 'Guest';
     try {
@@ -446,7 +471,23 @@ function openOrderModal(id, name, price, size = 'STANDARD') {
         : ['SMALL', 'MEDIUM', 'LARGE'].map(option => `<option value="${option}" ${option === size ? 'selected' : ''}>${option.charAt(0) + option.slice(1).toLowerCase()}</option>`).join('');
     document.getElementById('order-quantity').value = 1;
 
+    const sizeSelect = document.getElementById('order-size');
+    const quantityInput = document.getElementById('order-quantity');
+    sizeSelect.onchange = updateOrderModalPrice;
+    quantityInput.oninput = updateOrderModalPrice;
+    updateOrderModalPrice();
+
     document.getElementById('order-modal').classList.remove('hidden');
+}
+
+function updateOrderModalPrice() {
+    if (!selectedItem) return;
+    const size = document.getElementById('order-size').value;
+    const quantity = Math.max(0, parseInt(document.getElementById('order-quantity').value, 10) || 0);
+    const unitPrice = selectedItem.prices[size];
+    if (unitPrice === undefined) return;
+    document.getElementById('modal-item-price').textContent =
+        `Unit price: ₱${unitPrice.toFixed(2)} | Total: ₱${(unitPrice * quantity).toFixed(2)}`;
 }
 
 function openManageModal(id = '') {

@@ -132,9 +132,9 @@
 
                 <div class="form-group">
                     <label for="order-size">Size:</label>
-                    <select id="order-size" required></select>
+                    <select id="order-size" class="modal-select" required></select>
                     <label for="order-quantity">Quantity:</label>
-                    <input type="number" id="order-quantity" min="1" max="99" value="1" required>
+                    <input type="number" id="order-quantity" class="modal-number-input" min="1" max="99" value="1" required>
                 </div>
 
                 <div class="form-actions">
@@ -158,7 +158,7 @@
                     <label for="manage-name">Item Name:</label>
                     <input type="text" id="manage-name" required>
                     <label for="manage-type">Type:</label>
-                    <select id="manage-type"><option>Drink</option><option>Pastry</option></select>
+                    <select id="manage-type" class="modal-select"><option>Drink</option><option>Pastry</option></select>
                     <label for="manage-small-price">Small Price (₱):</label>
                     <input type="number" id="manage-small-price" step="0.01">
                     <label for="manage-medium-price">Medium Price (₱):</label>

@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.io.ByteArrayOutputStream;
 import java.util.concurrent.Executors;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,13 +23,27 @@ public class HTTPServer {
 
     private static final int PORT = 8080;
     private static final String WEB_ROOT = "web";
+    private static final int MAX_REQUEST_BYTES = 32 * 1024;
+    private static final int MAX_STATIC_FILE_BYTES = 5 * 1024 * 1024;
+    private static final long SESSION_TTL_MILLIS = 30 * 60 * 1000L;
+    private static final long LOGIN_WINDOW_MILLIS = 60 * 1000L;
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
 
     // References to system core classes
     private final Inventory inventory;
     private final OrderQueue orderQueue;
 
     // AUTH - User Sessions
-    private final Map<String, String> sessions = new ConcurrentHashMap<>();
+    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final Map<String, LoginAttempt> loginAttempts = new ConcurrentHashMap<>();
+
+    private record Session(String role, long expiresAt) {
+    }
+
+    private static final class LoginAttempt {
+        private long windowStartedAt;
+        private int count;
+    }
 
     public HTTPServer(Inventory inventory, OrderQueue orderQueue) {
         this.inventory = inventory;
@@ -36,13 +51,14 @@ public class HTTPServer {
     }
 
     public void start() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
 
         // 1. Static Content Handler (Serves HTML, CSS, JS)
         server.createContext("/", new StaticFileHandler());
 
         // 2. REST API Handlers
         server.createContext("/api/login", new LoginApiHandler());
+        server.createContext("/api/logout", new LogoutApiHandler());
         server.createContext("/api/menu", new MenuApiHandler());
         server.createContext("/api/orders", new OrdersApiHandler());
 
@@ -59,7 +75,14 @@ public class HTTPServer {
     private String getRole(HttpExchange exchange) {
         String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return sessions.get(authHeader.substring(7));
+            String token = authHeader.substring(7).trim();
+            Session session = sessions.get(token);
+            if (session == null) return null;
+            if (session.expiresAt() <= System.currentTimeMillis()) {
+                sessions.remove(token, session);
+                return null;
+            }
+            return session.role();
         }
         return null;
     }
@@ -87,14 +110,19 @@ public class HTTPServer {
             }
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                InputStream is = exchange.getRequestBody();
-                String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                String client = exchange.getRemoteAddress().getAddress().getHostAddress();
+                if (isLoginRateLimited(client)) {
+                    sendResponse(exchange, 429, "{\"error\":\"Too many login attempts\"}", "application/json");
+                    return;
+                }
+                String body = readRequestBody(exchange);
                 try {
                     String role = getRole(body);
 
                     if (role != null) {
+                        loginAttempts.remove(client);
                         String token = UUID.randomUUID().toString();
-                        sessions.put(token, role);
+                        sessions.put(token, new Session(role, System.currentTimeMillis() + SESSION_TTL_MILLIS));
                         sendResponse(exchange, 200, "{\"token\":\"" + token + "\", \"role\":\"" + role + "\"}", "application/json");
                     } else {
                         sendResponse(exchange, 401, "{\"error\":\"Invalid credentials\"}", "application/json");
@@ -112,12 +140,36 @@ public class HTTPServer {
             String password = body.replaceAll("(?s).*\"password\"\\s*:\\s*\"([^\"]+)\".*", "$1");
 
 
-            // Hard coded login credentials for demo purposes
             String role = null;
-            if ("admin".equals(username) && "admin123".equals(password)) role = "MANAGER";
-            else if ("barista".equals(username) && "coffee123".equals(password)) role = "BARISTA";
+            if ("admin".equals(username) && passwordMatches("CAFE_ADMIN_PASSWORD", password)) role = "MANAGER";
+            else if ("barista".equals(username) && passwordMatches("CAFE_BARISTA_PASSWORD", password)) role = "BARISTA";
             return role;
         }
+
+        private static boolean passwordMatches(String environmentVariable, String password) {
+            String configuredPassword = System.getenv(environmentVariable);
+            return configuredPassword != null && configuredPassword.equals(password);
+        }
+    }
+
+    private class LogoutApiHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}", "application/json");
+                return;
+            }
+            String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+            if (authorization != null && authorization.startsWith("Bearer ")) {
+                sessions.remove(authorization.substring(7).trim());
+            }
+            sendResponse(exchange, 204, "", "application/json");
+            }
     }
 
     // ==========================================
@@ -138,28 +190,32 @@ public class HTTPServer {
                 path = path.substring(1);
             }
 
-            Path filePath = Paths.get(WEB_ROOT, path);
+            Path rootPath = Paths.get(WEB_ROOT).toAbsolutePath().normalize();
+            Path filePath = rootPath.resolve(path).normalize();
 
-            // Security check: prevent directory traversal (e.g., ../)
-            Path _path = Paths.get(WEB_ROOT);
-
-            if (!filePath.normalize().startsWith(_path.toAbsolutePath().normalize())
-                    && !filePath.toAbsolutePath().normalize().startsWith(_path.toAbsolutePath().normalize())) {
+            if (!filePath.startsWith(rootPath) || !Files.exists(filePath)) {
                 sendResponse(exchange, 403, "Access Denied", "text/plain");
                 return;
             }
 
-            if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
-                String contentType = determineContentType(filePath.toString());
-                byte[] bytes = Files.readAllBytes(filePath);
+            Path realRoot = rootPath.toRealPath();
+            Path realFile = filePath.toRealPath();
+            if (!realFile.startsWith(realRoot) || Files.isDirectory(realFile)) {
+                sendResponse(exchange, 403, "Access Denied", "text/plain");
+                return;
+            }
+            if (Files.size(realFile) > MAX_STATIC_FILE_BYTES) {
+                sendResponse(exchange, 413, "File too large", "text/plain");
+                return;
+            }
 
-                exchange.getResponseHeaders().set("Content-Type", contentType);
-                exchange.sendResponseHeaders(200, bytes.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(bytes);
-                }
-            } else {
-                sendResponse(exchange, 404, "404 Not Found: " + path, "text/plain");
+            String contentType = determineContentType(realFile.toString());
+            byte[] bytes = Files.readAllBytes(realFile);
+
+            exchange.getResponseHeaders().set("Content-Type", contentType);
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(bytes);
             }
         }
 
@@ -210,7 +266,7 @@ public class HTTPServer {
                     }
                 } else {
                     // Determine which list to serialize (Sorted vs Default)
-                    java.util.List<MenuItem> itemsToSerialize = inventory.items; // Default (Ordered by ID)
+                    java.util.List<MenuItem> itemsToSerialize = inventory.getItemsSnapshot(); // Default (Ordered by ID)
 
                     if (query != null && query.contains("sortBy=price")) {
                         boolean ascending = !query.contains("desc=true");
@@ -231,7 +287,7 @@ public class HTTPServer {
             } else if ("POST".equalsIgnoreCase(method)) {
                 if (isAuthorized(exchange, "MANAGER")) return;
 
-                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                String body = readRequestBody(exchange);
                 try {
                         int id = Integer.parseInt(extractString(body, "id"));
                         String name = extractString(body, "name");
@@ -253,7 +309,7 @@ public class HTTPServer {
             } else if ("PUT".equalsIgnoreCase(method)) {
                 if (isAuthorized(exchange, "MANAGER")) return;
 
-                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                String body = readRequestBody(exchange);
                 try {
                     int id = Integer.parseInt(extractString(body, "id"));
                     String name = extractString(body, "name");
@@ -316,14 +372,16 @@ public class HTTPServer {
             } else if ("POST".equalsIgnoreCase(method)) {
                 if (isAuthorized(exchange, "MANAGER", "BARISTA")) return;
 
-                InputStream is = exchange.getRequestBody();
-                String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                String body = readRequestBody(exchange);
 
                 try {
                     List<CartItem> cartItems = parseCartItems(body);
                     String customerAlias = "Guest";
                     if (body.contains("\"customerAlias\"")) {
                         customerAlias = extractString(body, "customerAlias");
+                    }
+                    if (customerAlias.length() > 100) {
+                        throw new IllegalArgumentException("Customer alias is too long");
                     }
 
                     for (CartItem cartItem : cartItems) {
@@ -368,9 +426,43 @@ public class HTTPServer {
     }
 
     private static void addCorsHeaders(HttpExchange exchange) {
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        if ("http://localhost:8080".equals(origin) || "http://127.0.0.1:8080".equals(origin)) {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
+        }
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+
+    private boolean isLoginRateLimited(String client) {
+        long now = System.currentTimeMillis();
+        LoginAttempt attempt = loginAttempts.computeIfAbsent(client, ignored -> new LoginAttempt());
+        synchronized (attempt) {
+            if (now - attempt.windowStartedAt >= LOGIN_WINDOW_MILLIS) {
+                attempt.windowStartedAt = now;
+                attempt.count = 0;
+            }
+            attempt.count++;
+            return attempt.count > MAX_LOGIN_ATTEMPTS;
+        }
+    }
+
+    private static String readRequestBody(HttpExchange exchange) throws IOException {
+        String contentLength = exchange.getRequestHeaders().getFirst("Content-Length");
+        if (contentLength != null && Long.parseLong(contentLength) > MAX_REQUEST_BYTES) {
+            throw new IOException("Request body too large");
+        }
+
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int total = 0;
+        int read;
+        while ((read = exchange.getRequestBody().read(buffer)) != -1) {
+            total += read;
+            if (total > MAX_REQUEST_BYTES) throw new IOException("Request body too large");
+            body.write(buffer, 0, read);
+        }
+        return body.toString(StandardCharsets.UTF_8);
     }
 
     private static String itemToJson(MenuItem item) {
@@ -399,6 +491,7 @@ public class HTTPServer {
         List<CartItem> items = new ArrayList<>();
         Matcher matcher = Pattern.compile("\\{\\s*\\\"itemId\\\"\\s*:\\s*(\\d+)\\s*,\\s*\\\"size\\\"\\s*:\\s*\\\"([A-Za-z]+)\\\"\\s*,\\s*\\\"quantity\\\"\\s*:\\s*(\\d+)\\s*\\}").matcher(body);
         while (matcher.find()) {
+            if (items.size() >= 50) throw new IllegalArgumentException("Too many cart items");
             items.add(new CartItem(Integer.parseInt(matcher.group(1)),
                     Size.valueOf(matcher.group(2).toUpperCase()), Integer.parseInt(matcher.group(3))));
         }

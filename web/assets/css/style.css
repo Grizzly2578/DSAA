@@ -362,6 +362,40 @@ border-radius: 4px;
 font-size: 1rem;
 }
 
+.modal-select,
+.modal-number-input {
+width: 100%;
+min-height: 2.75rem;
+padding: 0.65rem 0.8rem;
+border: 1px solid var(--border-color);
+border-radius: 6px;
+background-color: var(--surface-color);
+color: var(--text-main);
+font: inherit;
+transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.modal-select {
+cursor: pointer;
+}
+
+.modal-select:hover,
+.modal-number-input:hover {
+border-color: var(--primary-light);
+}
+
+.modal-select:focus,
+.modal-number-input:focus {
+outline: none;
+border-color: var(--accent-color);
+box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
+.modal-select option {
+background-color: var(--surface-color);
+color: var(--text-main);
+}
+
 .form-actions {
 display: flex;
 justify-content: flex-end;

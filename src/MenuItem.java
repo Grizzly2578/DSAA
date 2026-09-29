@@ -8,9 +8,13 @@ public class MenuItem {
     private final HashMap<Size, Double> prices;
 
     public MenuItem(int id, String name, Map<Size, Double> prices) {
+        if (id <= 0 || name == null || name.isBlank() || name.length() > 100 || prices == null || prices.isEmpty()) {
+            throw new IllegalArgumentException("Invalid menu item");
+        }
         this.id = id;
         this.name = name;
         this.prices = new HashMap<>(prices);
+        this.prices.forEach((size, price) -> validatePrice(size, price));
     }
 
     public int getId() {
@@ -44,10 +48,14 @@ public class MenuItem {
     }
 
     public void setName(String name) {
+        if (name == null || name.isBlank() || name.length() > 100) {
+            throw new IllegalArgumentException("Invalid item name");
+        }
         this.name = name;
     }
 
     public void setPrice(Size size, double price) {
+        validatePrice(size, price);
         prices.put(size, price);
     }
 
@@ -57,6 +65,12 @@ public class MenuItem {
 
     public String getType() {
         return "Menu Item";
+    }
+
+    private static void validatePrice(Size size, double price) {
+        if (size == null || !Double.isFinite(price) || price < 0 || price > 1_000_000) {
+            throw new IllegalArgumentException("Invalid item price");
+        }
     }
 
     @Override

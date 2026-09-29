@@ -102,7 +102,14 @@ DSAA/
 1.  **Clone or Download** the project to your local machine.
 2.  **Open the project** in IntelliJ IDEA (or your preferred IDE).
 3.  Ensure the `src` folder is marked as your Sources Root.
-4.  Run `Main.java`.
+4.  Configure the login passwords outside the source code. In PowerShell, for example:
+    ```powershell
+    $env:CAFE_ADMIN_PASSWORD = "choose-a-strong-manager-password"
+    $env:CAFE_BARISTA_PASSWORD = "choose-a-strong-barista-password"
+    ```
+5.  Run `Main.java`.
+
+The server binds to `127.0.0.1` only, limits request and static-file sizes, expires sessions after 30 minutes, and supports `POST /api/logout` for session revocation. Use a reverse proxy with HTTPS before exposing it beyond the local machine.
 
 You will see the HTTP Server start in the console, followed by the CLI menu:
 ```text
@@ -118,9 +125,9 @@ Select an option:
 
 ### Accessing the Web Dashboard
 1.  Open your web browser and navigate to `http://localhost:8080/`.
-2.  Log in using one of the demo accounts:
-    *   **Manager:** `admin` / `admin123`
-    *   **Barista:** `barista` / `coffee123`
+2.  Log in using the configured accounts:
+    *   **Manager:** `admin` / the value of `CAFE_ADMIN_PASSWORD`
+    *   **Barista:** `barista` / the value of `CAFE_BARISTA_PASSWORD`
 
 ---
 
@@ -130,7 +137,8 @@ The `HTTPServer.java` exposes the following endpoints:
 
 | Endpoint | Method | Role Required | Description | Request Body Example |
 | :--- | :--- | :--- | :--- | :--- |
-| `/api/login` | `POST` | *None* | Authenticates user and returns JWT token. | `{"username":"admin", "password":"..."}` |
+| `/api/login` | `POST` | *None* | Authenticates user and returns a temporary bearer token. | `{"username":"admin", "password":"..."}` |
+| `/api/logout` | `POST` | Authenticated user | Revokes the current bearer session. | N/A |
 | `/api/menu` | `GET` | *None* | Returns the full menu array. | N/A |
 | `/api/menu?id=X`| `GET` | *None* | Performs a Binary Search and returns a specific item. | N/A |
 | `/api/menu?sortBy=price`| `GET` | *None* | Performs a Merge Sort to return the menu ordered by price. Use `&desc=true` for High-to-Low. | N/A |

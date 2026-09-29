@@ -8,7 +8,7 @@ import java.util.List;
  */
 public class Inventory {
 
-    public final List<MenuItem> items;
+    private final List<MenuItem> items;
 
     public Inventory() {
         items = new ArrayList<>();
@@ -26,12 +26,16 @@ public class Inventory {
         addItem(new Pastry(202, "Blueberry Muffin", 85.00));
     }
 
-    public int size(){
+    public synchronized int size(){
         return items.size();
     }
 
+    public synchronized List<MenuItem> getItemsSnapshot() {
+        return new ArrayList<>(items);
+    }
+
     // Display Menu Items
-    public void displayCatalog() {
+    public synchronized void displayCatalog() {
         if (items.isEmpty()) {
             IO.println("Menu is empty.");
             return;
@@ -63,20 +67,20 @@ public class Inventory {
         return -1;
     }
 
-    public boolean itemExists(int id) {
+    public synchronized boolean itemExists(int id) {
         return binarySearch(id) != -1;
     }
 
-    public MenuItem getItemById(int id) {
+    public synchronized MenuItem getItemById(int id) {
         int index = binarySearch(id);
         return (index == -1) ? null : items.get(index);
     }
 
-    public MenuItem get(int index){
+    public synchronized MenuItem get(int index){
         return items.get(index);
     }
 
-    public boolean addItem(MenuItem newItem) {
+    public synchronized boolean addItem(MenuItem newItem) {
         if (itemExists(newItem.getId())) {
             return false; // "Item Already Exists"
         }
@@ -88,7 +92,7 @@ public class Inventory {
         return true;
     }
 
-    public boolean removeItem(int id) {
+    public synchronized boolean removeItem(int id) {
         int index = binarySearch(id);
         if (index == -1) {
             return false; // "Item does not exist"
@@ -97,7 +101,7 @@ public class Inventory {
         return true;
     }
 
-    public boolean editItem(int id, String newName, double newPrice) {
+    public synchronized boolean editItem(int id, String newName, double newPrice) {
         MenuItem item = getItemById(id);
         if (item == null) {
             return false; // "Item Not Found"
@@ -107,7 +111,7 @@ public class Inventory {
         return true;
     }
 
-    public boolean editItem(int id, String newName, java.util.Map<Size, Double> newPrices) {
+    public synchronized boolean editItem(int id, String newName, java.util.Map<Size, Double> newPrices) {
         MenuItem item = getItemById(id);
         if (item == null || newPrices.isEmpty()) {
             return false;
@@ -119,7 +123,7 @@ public class Inventory {
         return true;
     }
 
-    public double calculateCartTotal(java.util.List<CartItem> cartItems) {
+    public synchronized double calculateCartTotal(java.util.List<CartItem> cartItems) {
         double total = 0.0;
         for (CartItem cartItem : cartItems) {
             MenuItem item = getItemById(cartItem.itemId());
@@ -135,7 +139,7 @@ public class Inventory {
      * Returns a copy of the inventory sorted by price using Merge Sort.
      * Time Complexity: O(n log n)
      */
-    public List<MenuItem> getMenuSortedByPrice(boolean ascending) {
+    public synchronized List<MenuItem> getMenuSortedByPrice(boolean ascending) {
         List<MenuItem> sortedList = new ArrayList<>(this.items);
         if (sortedList.size() <= 1) return sortedList;
 
