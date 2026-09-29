@@ -206,16 +206,22 @@ public class HTTPServer {
                         sendResponse(exchange, 400, "{\"error\":\"Invalid ID format\"}", "application/json");
                     }
                 } else {
-                    // Construct JSON representation of menu items from inventory
-                    StringBuilder json = new StringBuilder("[");
+                    // Determine which list to serialize (Sorted vs Default)
+                    java.util.List<MenuItem> itemsToSerialize = inventory.items; // Default (Ordered by ID)
 
-                    for (int i = 0; i < inventory.size(); i++) {
-                        MenuItem item = inventory.get(i);
-                        json.append(String.format("{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}",
-                                item.getId(), item.getName(), item.getPrice()));
-                        if (i < inventory.size() - 1) json.append(",");
+                    if (query != null && query.contains("sortBy=price")) {
+                        boolean ascending = !query.contains("desc=true");
+                        itemsToSerialize = inventory.getMenuSortedByPrice(ascending); // Trigger Merge Sort
                     }
 
+                    // Construct JSON representation
+                    StringBuilder json = new StringBuilder("[");
+                    for (int i = 0; i < itemsToSerialize.size(); i++) {
+                        MenuItem item = itemsToSerialize.get(i);
+                        json.append(String.format("{\"id\":%d,\"name\":\"%s\",\"price\":%.2f}",
+                                item.getId(), item.getName(), item.getPrice()));
+                        if (i < itemsToSerialize.size() - 1) json.append(",");
+                    }
                     json.append("]");
 
                     sendResponse(exchange, 200, json.toString(), "application/json");

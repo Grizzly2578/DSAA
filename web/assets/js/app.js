@@ -6,13 +6,13 @@ let currentUserRole = localStorage.getItem('role');
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    
+
     if (authToken && currentUserRole) {
         showApp();
     } else {
         showSection('login-section');
     }
-    
+
     // Set up polling for the order queue (updates every 3 seconds)
     setInterval(() => {
         if (!document.getElementById('orders-section').classList.contains('hidden-section')) {
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchAuth(url, options = {}) {
     if (!options.headers) options.headers = {};
     if (authToken) options.headers['Authorization'] = 'Bearer ' + authToken;
-    
+
     const response = await fetch(url, options);
     if (response.status === 401 || response.status === 403) {
         logout();
@@ -44,7 +44,7 @@ async function handleLogin(e) {
             method: 'POST',
             body: JSON.stringify({ username: user, password: pass })
         });
-        
+
         if (res.ok) {
             const data = await res.json();
             authToken = data.token;
@@ -66,10 +66,10 @@ function logout() {
     currentUserRole = null;
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    
+
     document.getElementById('login-user').value = '';
     document.getElementById('login-pass').value = '';
-    
+
     document.getElementById('main-nav').classList.add('hidden');
     showSection('login-section');
 }
@@ -99,17 +99,17 @@ function showSection(sectionId) {
     document.getElementById('menu-section').classList.remove('active-section');
     document.getElementById('orders-section').classList.add('hidden-section');
     document.getElementById('orders-section').classList.remove('active-section');
-    
+
     // Reset nav links (only if showing app sections)
     if(sectionId !== 'login-section') {
         document.getElementById('nav-menu').classList.remove('active');
         document.getElementById('nav-orders').classList.remove('active');
     }
-    
+
     // Show target section
     document.getElementById(sectionId).classList.remove('hidden-section');
     document.getElementById(sectionId).classList.add('active-section');
-    
+
     // Update nav link
     if (sectionId === 'menu-section') {
         document.getElementById('nav-menu').classList.add('active');
@@ -124,14 +124,14 @@ function showSection(sectionId) {
 function initTheme() {
     const themeToggleBtn = document.getElementById('theme-toggle');
     const currentTheme = localStorage.getItem('theme') || 'light';
-    
+
     document.documentElement.setAttribute('data-theme', currentTheme);
     updateThemeButton(currentTheme, themeToggleBtn);
 
     themeToggleBtn.addEventListener('click', () => {
         let theme = document.documentElement.getAttribute('data-theme');
         let newTheme = theme === 'dark' ? 'light' : 'dark';
-        
+
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         updateThemeButton(newTheme, themeToggleBtn);
@@ -158,7 +158,7 @@ async function searchItem() {
     try {
         const response = await fetchAuth('/api/menu?id=' + searchId);
         if (!response.ok) throw new Error('Failed to search item');
-        
+
         const searchData = await response.json();
         renderMenu(searchData); // Render only the matching item
     } catch (error) {
@@ -178,7 +178,7 @@ function renderMenu(itemsToRender) {
     itemsToRender.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
-        
+
         let managerActions = '';
         if (currentUserRole === 'MANAGER') {
             managerActions = `
@@ -208,12 +208,22 @@ function renderMenu(itemsToRender) {
 
 async function loadMenu() {
     const grid = document.getElementById('menu-grid');
-    if(!authToken) return; // Wait until logged in
-    
+    if(!authToken) return;
+
+    // Read the dropdown value
+    const sortValue = document.getElementById('sort-select') ? document.getElementById('sort-select').value : 'default';
+    let url = '/api/menu';
+
+    if (sortValue === 'price-asc') {
+        url += '?sortBy=price';
+    } else if (sortValue === 'price-desc') {
+        url += '?sortBy=price&desc=true';
+    }
+
     try {
-        const response = await fetchAuth('/api/menu');
+        const response = await fetchAuth(url);
         if (!response.ok) throw new Error('Failed to fetch menu');
-        
+
         currentMenu = await response.json();
         renderMenu(currentMenu);
 
@@ -227,20 +237,20 @@ async function loadOrders() {
     const tbody = document.getElementById('orders-table-body');
     const countDisplay = document.getElementById('pending-count');
     if(!authToken) return;
-    
+
     try {
         const response = await fetchAuth('/api/orders');
         if (!response.ok) throw new Error('Failed to fetch orders');
-        
+
         // CRITICAL FIX: Parse the JSON response into the 'orders' variable
-        const orders = await response.json(); 
-        
+        const orders = await response.json();
+
         // Update the pending count UI
         if (countDisplay) countDisplay.textContent = orders.length;
-        
+
         // Clear the table before injecting new rows (prevents duplicates from polling)
         tbody.innerHTML = '';
-        
+
         if (orders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">No pending orders.</td></tr>';
             return;
@@ -270,11 +280,11 @@ async function loadOrders() {
 
 async function submitOrder(event) {
     event.preventDefault(); // Prevent page reload
-    
+
     const itemId = document.getElementById('order-item-id').value;
     const quantity = document.getElementById('order-quantity').value;
     const customerAlias = document.getElementById('customer-alias').value;
-    
+
     const orderData = {
         itemId: parseInt(itemId),
         quantity: parseInt(quantity),
@@ -323,7 +333,7 @@ async function fulfillNextOrder() {
 
 async function deleteMenuItem(id) {
     if(!confirm('Are you sure you want to remove item ID: ' + id + '?')) return;
-    
+
     try {
         const res = await fetchAuth('/api/menu?id=' + id, { method: 'DELETE' });
         if(res.ok) {
@@ -344,9 +354,9 @@ async function submitManagedItem(e) {
     const id = document.getElementById('manage-id').value;
     const name = document.getElementById('manage-name').value;
     const price = document.getElementById('manage-price').value;
-    
+
     const method = mode === 'add' ? 'POST' : 'PUT';
-    
+
     try {
         const res = await fetchAuth('/api/menu', {
             method: method,
@@ -371,9 +381,9 @@ function openOrderModal(id, name, price) {
     document.getElementById('order-item-id').value = id;
     document.getElementById('modal-item-name').textContent = name;
     document.getElementById('modal-item-price').textContent = `$${price.toFixed(2)}`;
-    document.getElementById('order-quantity').value = 1; 
-    document.getElementById('customer-alias').value = ''; 
-    
+    document.getElementById('order-quantity').value = 1;
+    document.getElementById('customer-alias').value = '';
+
     document.getElementById('order-modal').classList.remove('hidden');
 }
 
@@ -381,14 +391,14 @@ function openManageModal(id = '', name = '', price = '') {
     const isEdit = id !== '';
     document.getElementById('manage-title').textContent = isEdit ? 'Edit Menu Item' : 'Add New Item';
     document.getElementById('manage-mode').value = isEdit ? 'edit' : 'add';
-    
+
     const idField = document.getElementById('manage-id');
     idField.value = id;
     idField.readOnly = isEdit; // Can't change ID on edit in this data structure
-    
+
     document.getElementById('manage-name').value = name;
     document.getElementById('manage-price').value = price;
-    
+
     document.getElementById('manage-modal').classList.remove('hidden');
 }
 
@@ -409,10 +419,10 @@ window.onclick = function(event) {
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast-container');
     const msgEl = document.getElementById('toast-message');
-    
+
     msgEl.textContent = message;
     toast.className = `toast-container ${type}`;
-    
+
     // Auto-hide after 3 seconds
     setTimeout(() => {
         toast.classList.add('hidden');

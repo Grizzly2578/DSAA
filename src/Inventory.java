@@ -105,5 +105,57 @@ public class Inventory {
         return true;
     }
 
+    /**
+     * Returns a copy of the inventory sorted by price using Merge Sort.
+     * Time Complexity: O(n log n)
+     */
+    public List<MenuItem> getMenuSortedByPrice(boolean ascending) {
+        List<MenuItem> sortedList = new ArrayList<>(this.items);
+        if (sortedList.size() <= 1) return sortedList;
+
+        MenuItem[] temp = new MenuItem[sortedList.size()];
+        mergeSort(sortedList, temp, 0, sortedList.size() - 1, ascending);
+        return sortedList;
+    }
+
+    private void mergeSort(List<MenuItem> list, MenuItem[] temp, int left, int right, boolean ascending) {
+        if (left < right) {
+            int mid = left + (right - left) / 2;
+            mergeSort(list, temp, left, mid, ascending);
+            mergeSort(list, temp, mid + 1, right, ascending);
+            merge(list, temp, left, mid, right, ascending);
+        }
+    }
+
+    private void merge(List<MenuItem> list, MenuItem[] temp, int left, int mid, int right, boolean ascending) {
+        for (int i = left; i <= right; i++) {
+            temp[i] = list.get(i);
+        }
+
+        int i = left;
+        int j = mid + 1;
+        int k = left;
+
+        while (i <= mid && j <= right) {
+            boolean condition = ascending
+                    ? temp[i].getPrice() <= temp[j].getPrice()
+                    : temp[i].getPrice() >= temp[j].getPrice();
+
+            if (condition) {
+                list.set(k, temp[i]);
+                i++;
+            } else {
+                list.set(k, temp[j]);
+                j++;
+            }
+            k++;
+        }
+
+        while (i <= mid) {
+            list.set(k, temp[i]);
+            k++;
+            i++;
+        }
+    }
 
 }
