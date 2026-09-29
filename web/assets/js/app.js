@@ -70,11 +70,13 @@ function logout() {
     document.getElementById('login-user').value = '';
     document.getElementById('login-pass').value = '';
 
+    document.getElementById('main-header').classList.add('hidden-section');
     document.getElementById('main-nav').classList.add('hidden');
     showSection('login-section');
 }
 
 function showApp() {
+    document.getElementById('main-header').classList.remove('hidden-section');
     document.getElementById('main-nav').classList.remove('hidden');
     showSection('menu-section');
     applyRBAC();
@@ -123,7 +125,7 @@ function showSection(sectionId) {
 // --- Theme Handling ---
 function initTheme() {
     const themeToggleBtn = document.getElementById('theme-toggle');
-    const currentTheme = localStorage.getItem('theme') || 'light';
+    const currentTheme = localStorage.getItem('theme') || 'dark';
 
     document.documentElement.setAttribute('data-theme', currentTheme);
     updateThemeButton(currentTheme, themeToggleBtn);
