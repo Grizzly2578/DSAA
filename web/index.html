@@ -4,33 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NetBeans Cafe</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 <header id="main-header" class="app-header hidden-section">
     <div class="logo-container">
-        <img src="/assets/images/logo.jpg" alt="NetBeans Cafe Logo" class="logo">
+        <img src="assets/images/logo-dark-mode.png" alt="NetBeans Cafe Logo" class="logo logo-dark" id="brand-logo">
+        <img src="assets/images/logo-light-mode.png" alt="" class="logo logo-light" aria-hidden="true">
     </div>
     <nav>
         <ul id="main-nav" class="hidden">
             <li><a href="#" onclick="showSection('menu-section')" class="active" id="nav-menu">Menu</a></li>
             <li><a href="#" onclick="showSection('orders-section')" id="nav-orders">Order Queue</a></li>
             <li class="manager-only"><a href="#" onclick="showSection('summary-section')" id="nav-summary">Summary</a></li>
-            <li><button id="theme-toggle" class="btn btn-secondary theme-btn">🌙</button></li>
-            <li><button onclick="logout()" class="btn btn-secondary" style="margin-left: 10px;">Logout</button></li>
+            <li><button id="theme-toggle" class="btn btn-secondary theme-btn" aria-label="Toggle light and dark theme">🌙</button></li>
+            <li><button onclick="logout()" class="btn btn-secondary">Logout</button></li>
         </ul>
     </nav>
 </header>
 
 <main class="app-main">
     <!-- Error/Success Messages -->
-    <div id="toast-container" class="toast-container hidden">
+    <div id="toast-container" class="toast-container hidden" role="status" aria-live="polite">
         <span id="toast-message"></span>
     </div>
 
+    <!-- Login -->
     <section id="login-section" class="active-section">
-        <div class="card" style="max-width: 400px; margin: 2rem auto;">
-            <h2 class="text-center" style="margin-bottom: 1rem;">Staff Portal</h2>
+        <div class="card login-card">
+            <div class="login-logo-container">
+                <img src="assets/images/logo-dark-mode.png" alt="NetBeans Cafe Logo" class="login-logo logo-dark">
+                <img src="assets/images/logo-light-mode.png" alt="" class="login-logo logo-light" aria-hidden="true">
+            </div>
+            <h2 class="portal-title">Staff Portal</h2>
             <form id="login-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label for="login-user">Username</label>
@@ -40,9 +46,9 @@
                     <label for="login-pass">Password</label>
                     <input type="password" id="login-pass" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary btn-full" style="margin-top: 1rem;">Login</button>
+                <button type="submit" class="btn btn-primary btn-full">Login</button>
             </form>
-            <div style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; opacity: 0.7;">
+            <div class="demo-accounts">
                 <strong>Demo Accounts:</strong><br>
                 Manager: admin / admin123<br>
                 Barista: barista / coffee123
@@ -53,17 +59,17 @@
     <!-- Menu Section -->
     <section id="menu-section" class="hidden-section">
         <div class="section-header">
-            <h2>Our Menu</h2>
-            <div class="action-buttons" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                <select id="sort-select" onchange="loadMenu()" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.9rem; background: var(--surface-color); color: var(--text-main);">
+            <h2 id="our-menu-text">Our Menu</h2>
+            <div class="action-buttons">
+                <select id="sort-select" onchange="loadMenu()" aria-label="Sort menu">
                     <option value="default">Sort: Default (ID)</option>
                     <option value="price-asc">Sort: Price (Low to High)</option>
                     <option value="price-desc">Sort: Price (High to Low)</option>
                 </select>
 
-                <div style="display: flex; gap: 0.25rem; align-items: center;">
-                    <input type="number" id="search-id" placeholder="Search ID..." style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; max-width: 120px; font-size: 0.9rem;" onkeypress="if(event.key === 'Enter') searchItem()">
-                    <button onclick="searchItem()" class="btn btn-secondary">🔍</button>
+                <div class="search-group">
+                    <input type="number" id="search-id" placeholder="Search ID..." aria-label="Search by item ID" onkeypress="if(event.key === 'Enter') searchItem()">
+                    <button onclick="searchItem()" class="btn btn-secondary" aria-label="Search">🔍</button>
                 </div>
                 <button onclick="openManageModal()" class="btn btn-primary manager-only hidden">Add New Item</button>
                 <button onclick="document.getElementById('search-id').value=''; loadMenu()" class="btn btn-secondary">Refresh Menu</button>
@@ -74,6 +80,7 @@
             <!-- Menu items will be injected here via JS -->
             <div class="loading">Loading menu...</div>
         </div>
+
         <div class="queue-container cart-panel">
             <div class="section-header">
                 <h3>Shopping Cart (<span id="cart-count">0</span>)</h3>
@@ -81,7 +88,7 @@
                 <button onclick="checkoutCart()" class="btn btn-primary">Place Order</button>
             </div>
             <div id="cart-items"><p>Your cart is empty.</p></div>
-            <input type="text" id="cart-alias" placeholder="Customer alias (optional)">
+            <input type="text" id="cart-alias" placeholder="Customer alias (optional)" aria-label="Customer alias">
         </div>
     </section>
 
@@ -154,10 +161,10 @@
     </section>
 
     <!-- Order Modal -->
-    <div id="order-modal" class="modal hidden">
+    <div id="order-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('order-modal')">&times;</span>
-            <h3>Place Order</h3>
+            <button type="button" class="close-btn" onclick="closeModal('order-modal')" aria-label="Close">&times;</button>
+            <h3 id="order-modal-title">Place Order</h3>
             <h4 id="modal-item-name"></h4>
             <p id="modal-item-price"></p>
 
@@ -179,9 +186,10 @@
         </div>
     </div>
 
-    <div id="manage-modal" class="modal hidden">
+    <!-- Manage Modal -->
+    <div id="manage-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manage-title">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal('manage-modal')">&times;</span>
+            <button type="button" class="close-btn" onclick="closeModal('manage-modal')" aria-label="Close">&times;</button>
             <h3 id="manage-title">Add Menu Item</h3>
 
             <form id="manage-form" onsubmit="submitManagedItem(event)">
@@ -192,15 +200,18 @@
                     <label for="manage-name">Item Name:</label>
                     <input type="text" id="manage-name" required>
                     <label for="manage-type">Type:</label>
-                    <select id="manage-type" class="modal-select"><option>Drink</option><option>Pastry</option></select>
+                    <select id="manage-type" class="modal-select">
+                        <option value="Drink">Drink</option>
+                        <option value="Pastry">Pastry</option>
+                    </select>
                     <label for="manage-small-price">Small Price (₱):</label>
-                    <input type="number" id="manage-small-price" step="0.01">
+                    <input type="number" id="manage-small-price" step="0.01" min="0">
                     <label for="manage-medium-price">Medium Price (₱):</label>
-                    <input type="number" id="manage-medium-price" step="0.01">
+                    <input type="number" id="manage-medium-price" step="0.01" min="0">
                     <label for="manage-large-price">Large Price (₱):</label>
-                    <input type="number" id="manage-large-price" step="0.01">
+                    <input type="number" id="manage-large-price" step="0.01" min="0">
                     <label for="manage-standard-price">Pastry Price (₱):</label>
-                    <input type="number" id="manage-standard-price" step="0.01">
+                    <input type="number" id="manage-standard-price" step="0.01" min="0">
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('manage-modal')">Cancel</button>
@@ -211,6 +222,6 @@
     </div>
 </main>
 
-<script src="/assets/js/app.js"></script>
+<script src="assets/js/app.js"></script>
 </body>
 </html>

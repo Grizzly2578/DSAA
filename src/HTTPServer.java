@@ -51,7 +51,7 @@ public class HTTPServer {
     }
 
     public void start() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PORT), 0);
 
         // 1. Static Content Handler (Serves HTML, CSS, JS)
         server.createContext("/", new StaticFileHandler());

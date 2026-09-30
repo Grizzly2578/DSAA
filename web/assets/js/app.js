@@ -159,6 +159,7 @@ function initTheme() {
 
     document.documentElement.setAttribute('data-theme', currentTheme);
     updateThemeButton(currentTheme, themeToggleBtn);
+    updateBrandLogo(currentTheme);
 
     themeToggleBtn.addEventListener('click', () => {
         let theme = document.documentElement.getAttribute('data-theme');
@@ -167,6 +168,7 @@ function initTheme() {
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         updateThemeButton(newTheme, themeToggleBtn);
+        updateBrandLogo(newTheme);
     });
 }
 
@@ -175,6 +177,15 @@ function updateThemeButton(theme, btn) {
         btn.textContent = '☀️';
     } else {
         btn.textContent = '🌙';
+    }
+}
+
+function updateBrandLogo(theme) {
+    const logo = document.getElementById('brand-logo');
+    if (logo) {
+        logo.src = theme === 'dark'
+            ? '/assets/images/logo-dark-mode.png'
+            : '/assets/images/logo-light-mode.png';
     }
 }
 
