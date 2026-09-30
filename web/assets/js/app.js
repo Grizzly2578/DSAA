@@ -233,7 +233,7 @@ function renderMenu(itemsToRender) {
                 <div class="card-id">ID: ${item.id}</div>
             </div>
             <div style="margin-top:1rem;">
-                <div class="card-price">${item.type === 'Drink' ? 'From ' : ''}₱${item.prices[item.type === 'Drink' ? 'MEDIUM' : 'STANDARD'].toFixed(2)}</div>
+                
                 ${sizeSelect}
                 <button class="btn btn-primary btn-full" onclick="addToCart(${item.id})">Add to Cart</button>
                 ${managerActions}
