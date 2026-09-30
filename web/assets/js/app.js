@@ -323,7 +323,7 @@ async function loadOrders() {
                     size: item.size
                 };
             });
-            const itemIds = itemDetails.map(item => `${item.id} - ${item.name}`).join('<br>');
+            const itemIds = itemDetails.map(item => `${item.id}`).join('<br>');
             const itemNames = itemDetails.map(item => `${item.quantity} x ${item.name} (${item.size})`).join('<br>');
 
             const tr = document.createElement('tr');
