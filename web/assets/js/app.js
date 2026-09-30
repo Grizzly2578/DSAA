@@ -90,6 +90,7 @@ function logout() {
 
     document.getElementById('main-header').classList.add('hidden-section');
     document.getElementById('main-nav').classList.add('hidden');
+    document.getElementById('mobile-bottom-nav').classList.add('hidden');
     renderCart();
     showSection('login-section');
 }
@@ -97,6 +98,7 @@ function logout() {
 function showApp() {
     document.getElementById('main-header').classList.remove('hidden-section');
     document.getElementById('main-nav').classList.remove('hidden');
+    document.getElementById('mobile-bottom-nav').classList.remove('hidden');
     showSection('menu-section');
     applyRBAC();
 }
@@ -133,6 +135,9 @@ function showSection(sectionId) {
         document.getElementById('nav-menu').classList.remove('active');
         document.getElementById('nav-orders').classList.remove('active');
         document.getElementById('nav-summary').classList.remove('active');
+        document.getElementById('mobile-nav-menu').classList.remove('active');
+        document.getElementById('mobile-nav-orders').classList.remove('active');
+        document.getElementById('mobile-nav-summary').classList.remove('active');
     }
 
     // Show target section
@@ -142,12 +147,15 @@ function showSection(sectionId) {
     // Update nav link
     if (sectionId === 'menu-section') {
         document.getElementById('nav-menu').classList.add('active');
+        document.getElementById('mobile-nav-menu').classList.add('active');
         loadMenu();
     } else if (sectionId === 'orders-section') {
         document.getElementById('nav-orders').classList.add('active');
+        document.getElementById('mobile-nav-orders').classList.add('active');
         loadOrders();
     } else if (sectionId === 'summary-section') {
         document.getElementById('nav-summary').classList.add('active');
+        document.getElementById('mobile-nav-summary').classList.add('active');
         loadSummary();
     }
 }

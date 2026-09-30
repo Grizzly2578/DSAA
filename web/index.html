@@ -14,14 +14,26 @@
     </div>
     <nav>
         <ul id="main-nav" class="hidden">
-            <li><a href="#" onclick="showSection('menu-section')" class="active" id="nav-menu">Menu</a></li>
-            <li><a href="#" onclick="showSection('orders-section')" id="nav-orders">Order Queue</a></li>
-            <li class="manager-only"><a href="#" onclick="showSection('summary-section')" id="nav-summary">Summary</a></li>
+            <li class="desktop-nav-link"><a href="#" onclick="showSection('menu-section')" class="active" id="nav-menu">Menu</a></li>
+            <li class="desktop-nav-link"><a href="#" onclick="showSection('orders-section')" id="nav-orders">Order Queue</a></li>
+            <li class="desktop-nav-link manager-only"><a href="#" onclick="showSection('summary-section')" id="nav-summary">Summary</a></li>
             <li><button id="theme-toggle" class="btn btn-secondary theme-btn" aria-label="Toggle light and dark theme">🌙</button></li>
-            <li><button onclick="logout()" class="btn btn-secondary">Logout</button></li>
+            <li><button onclick="logout()" class="btn btn-secondary logout-btn"><span class="logout-label">Logout</span><span class="logout-icon" aria-hidden="true">↪</span></button></li>
         </ul>
     </nav>
 </header>
+
+<nav id="mobile-bottom-nav" class="mobile-bottom-nav hidden" aria-label="Mobile navigation">
+    <a href="#" onclick="showSection('menu-section')" id="mobile-nav-menu">
+        <span class="mobile-nav-icon" aria-hidden="true">☕</span><span>Menu</span>
+    </a>
+    <a href="#" onclick="showSection('orders-section')" id="mobile-nav-orders">
+        <span class="mobile-nav-icon" aria-hidden="true">▣</span><span>Order Queue</span>
+    </a>
+    <a href="#" onclick="showSection('summary-section')" class="manager-only" id="mobile-nav-summary">
+        <span class="mobile-nav-icon" aria-hidden="true">▥</span><span>Summary</span>
+    </a>
+</nav>
 
 <main class="app-main">
     <!-- Error/Success Messages -->
