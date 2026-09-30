@@ -661,3 +661,231 @@ select:focus {
 .logo-light { display: none; }
 [data-theme="light"] .logo-dark { display: none; }
 [data-theme="light"] .logo-light { display: inline; }
+
+/* Responsive layout */
+@media (max-width: 1023px) {
+    .app-header {
+        padding: 1rem 1.5rem;
+    }
+
+    nav ul {
+        gap: 1rem;
+    }
+
+    nav a {
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    .app-main {
+        padding: 2rem 1.5rem;
+    }
+
+    .section-header {
+        gap: 1rem;
+    }
+
+    .action-buttons {
+        width: 100%;
+    }
+
+    .action-buttons > select,
+    .action-buttons > button,
+    .search-group {
+        flex: 1 1 auto;
+    }
+
+    .search-group input {
+        flex: 1 1 auto;
+        max-width: none;
+    }
+
+    .summary-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .app-header {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 0.85rem 0.75rem;
+    }
+
+    .logo-container {
+        align-self: center;
+        height: 42px;
+        max-width: 100%;
+    }
+
+    .logo-container .logo {
+        max-width: min(180px, 70vw);
+    }
+
+    nav {
+        width: 100%;
+    }
+
+    nav ul {
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+        column-gap: 0.7rem;
+        row-gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    nav li {
+        display: flex;
+        align-items: center;
+    }
+
+    nav a {
+        white-space: nowrap;
+        font-size: 0.72rem;
+        padding: 0.35rem 0;
+    }
+
+    #main-nav .btn {
+        margin-left: 0;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.8px;
+    }
+
+    .app-main {
+        padding: 1.25rem 0.75rem;
+    }
+
+    .section-header {
+        align-items: stretch;
+        flex-direction: column;
+        margin-bottom: 1.25rem;
+    }
+
+    .section-header h2 {
+        font-size: 1.45rem;
+    }
+
+    .action-buttons {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .action-buttons > select,
+    .action-buttons > button,
+    .search-group,
+    .search-group input,
+    .search-group button {
+        width: 100%;
+        max-width: none;
+    }
+
+    .search-group {
+        flex-direction: row;
+    }
+
+    .search-group button {
+        width: auto;
+        flex: 0 0 auto;
+    }
+
+    .grid-container {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    .card,
+    .queue-container,
+    .cart-panel {
+        padding: 1.25rem;
+    }
+
+    .cart-panel .section-header {
+        align-items: stretch;
+    }
+
+    .cart-row {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .cart-row .btn {
+        width: 100%;
+    }
+
+    .data-table {
+        min-width: 680px;
+    }
+
+    .queue-container {
+        overflow-x: auto;
+    }
+
+    .summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .metric-card {
+        padding: 1rem;
+    }
+
+    .metric-card strong {
+        font-size: 1.35rem;
+    }
+
+    .summary-sales-container {
+        max-height: 24rem;
+    }
+
+    .modal-content {
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+
+    .toast-container {
+        bottom: 1rem;
+        left: 1rem;
+        right: 1rem;
+        text-align: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .app-header {
+        padding-inline: 0.5rem;
+    }
+
+    nav ul {
+        column-gap: 0.45rem;
+        row-gap: 0.5rem;
+    }
+
+    nav a {
+        font-size: 0.66rem;
+    }
+
+    #main-nav .btn {
+        padding-inline: 0.55rem;
+        font-size: 0.64rem;
+    }
+
+    .summary-metrics {
+        grid-template-columns: 1fr;
+    }
+}
