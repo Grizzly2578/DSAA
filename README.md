@@ -111,7 +111,7 @@ DSAA/
     ```
 5.  Run `Main.java`.
 
-The server binds to `127.0.0.1` only, limits request and static-file sizes, expires sessions after 30 minutes, and supports `POST /api/logout` for session revocation. Use a reverse proxy with HTTPS before exposing it beyond the local machine.
+The server binds to `0.0.0.0`, limits request and static-file sizes, expires sessions after 30 minutes, and supports `POST /api/logout` for session revocation. Use a reverse proxy with HTTPS before exposing it beyond the local machine.
 
 You will see the HTTP Server start in the console, followed by the CLI menu:
 ```text
@@ -158,7 +158,7 @@ The `HTTPServer.java` exposes the following endpoints:
 
 ## 🛠️ Built With
 
-*   **Java 27:** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
+*   **Java 17:** Application logic, Data Structures, and standard library `com.sun.net.httpserver`.
 *   **HTML5/CSS3:** Semantic structure and custom styling (CSS Variables for theming).
 *   **Vanilla JavaScript (ES6+):** Asynchronous `fetch` API, DOM manipulation, and LocalStorage.
 
