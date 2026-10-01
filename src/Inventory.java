@@ -37,12 +37,12 @@ public class Inventory {
     // Display Menu Items
     public synchronized void displayCatalog() {
         if (items.isEmpty()) {
-            IO.println("Menu is empty.");
+            System.out.println("Menu is empty.");
             return;
         }
-        IO.println("\n----- MENU (Ordered Array by ID) -----");
+        System.out.println("\n----- MENU (Ordered Array by ID) -----");
         for (MenuItem item : items) {
-            IO.println(item);
+            System.out.println(item);
         }
     }
 
