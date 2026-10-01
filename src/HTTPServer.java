@@ -148,8 +148,12 @@ public class HTTPServer {
 
 
             String role = null;
-            if ("admin".equals(username) && passwordMatches("CAFE_ADMIN_PASSWORD", password)) role = "MANAGER";
-            else if ("barista".equals(username) && passwordMatches("CAFE_BARISTA_PASSWORD", password)) role = "BARISTA";
+//            if ("admin".equals(username) && passwordMatches("CAFE_ADMIN_PASSWORD", password)) role = "MANAGER";
+//            else if ("barista".equals(username) && passwordMatches("CAFE_BARISTA_PASSWORD", password)) role = "BARISTA";
+
+//            Hard Coded Implementation of Login Credentials for Demonstration Purposes
+            if ("admin".equals(username) && password.equals("admin123")) role = "MANAGER";
+            else if ("barista".equals(username) && password.equals("coffee123")) role = "BARISTA";
             return role;
         }
 
