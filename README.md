@@ -99,7 +99,7 @@ DSAA/
             └── logo.jpg      # Branding
 ```
 
-### Running the Application
+### Running the Application With IDE
 
 1.  **Clone or Download** the project to your local machine.
 2.  **Open the project** in IntelliJ IDEA (or your preferred IDE).
@@ -111,6 +111,21 @@ DSAA/
     ```
 5.  Run `Main.java`.
 
+
+### Running the Application Without IDE
+
+1.  **Clone or Download** the project to your local machine.
+2.  Ensure the `src` folder is marked as your Sources Root.
+3.  Configure the login passwords outside the source code. In PowerShell, for example:
+    ```powershell
+    $env:CAFE_ADMIN_PASSWORD = "choose-a-strong-manager-password"
+    $env:CAFE_BARISTA_PASSWORD = "choose-a-strong-barista-password"
+    ```
+4.  Run `Main.java`.
+    ```powershell
+    javac -d out src/*.java
+    java -cp out Main
+    ```
 The server binds to `0.0.0.0`, limits request and static-file sizes, expires sessions after 30 minutes, and supports `POST /api/logout` for session revocation. Use a reverse proxy with HTTPS before exposing it beyond the local machine.
 
 You will see the HTTP Server start in the console, followed by the CLI menu:
@@ -127,7 +142,7 @@ Select an option:
 
 ### Accessing the Web Dashboard
 1.  Open your web browser and navigate to `http://localhost:8080/`.
-2.  Log in using the configured accounts:
+2.  Log in using the configured accounts: the 
     *   **Manager:** `admin` / the value of `CAFE_ADMIN_PASSWORD`
     *   **Barista:** `barista` / the value of `CAFE_BARISTA_PASSWORD`
 
