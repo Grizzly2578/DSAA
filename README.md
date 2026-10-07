@@ -8,6 +8,8 @@ Welcome to the Java DSA Cafe Management System! This project is a dual-interface
 
 This project was built from scratch with **zero external dependencies** (no Spring Boot, no Maven/Gradle required) to showcase core Java networking and algorithmic capabilities.
 
+*   This project's **HTML HTTP** Server is largely built with the assistance of Artificial Intelligence.
+
 ---
 
 ## ✨ Key Features
